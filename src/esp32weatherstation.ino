@@ -7,7 +7,6 @@
 #include <Preferences.h>
 #include <Adafruit_BME280.h>
 #include <Wire.h>
-// #include <SDS011.h>
 #include <pms.h>
 #include "WindSensor.h"
 #include "RainSensor.h"
@@ -108,7 +107,6 @@ unsigned long lastBattMeasurement = 0;
 WindSensor ws(windSpeedPin, windDirPin);
 RainSensor rs(rainPin);
 Adafruit_BME280 bme;
-// SDS011 sds(Serial1);
 
 PMS pms(Serial1);
 PMS::DATA data;
@@ -154,7 +152,6 @@ void setup() {
                   Adafruit_BME280::SAMPLING_X1, // humidity
                   Adafruit_BME280::FILTER_OFF);
 
-  // sds.setMode(SDS_SET_QUERY);
   pms.passiveMode();
 
   loadNetworkCredentials();
@@ -252,7 +249,7 @@ void loop() {
       batteryCharging = false;
     if (batteryVoltage < battLow)
       batteryCharging = true;
-    
+
     digitalWrite(solarRelay, batteryCharging);
   }
 }
