@@ -114,6 +114,7 @@ void getWeatherData() {
   response += String(windSpeed*3.6) + ","; //km/h
   response += String(beaufort) + " (" + beaufortDesc + "),";
   response += String(windDir) + ",";
+  response += String(windDirDeg) + ",";
   response += String(temperature) + ",";
   response += String(humidity) + ",";
   response += String(pressure) + ",";

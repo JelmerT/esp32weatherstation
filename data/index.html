@@ -166,8 +166,11 @@
 								<td class="stdColor" colspan="2"><canvas id="windCanvas"></canvas></td>
 							</tr>
 							<tr>
+								<td>Wind Dir Deg</td><td id="windDirDeg">-</td>
+							</tr>							
+							<tr>
 								<td>Beaufort</td><td id="windBeaufort">-</td>
-							</tr>
+							</tr>							
 						</tbody>
 					</table>
 				</div>
@@ -483,17 +486,18 @@
 			var d = data.split(",");
 			var speed = parseFloat(d[0]).toFixed(2);
 			document.getElementById("windBeaufort").innerHTML = d[1];
+			document.getElementById("windDirDeg").innerHTML = d[3];
 			var angle = parseInt(d[2]) * Math.PI/4;
 			if (!isNaN(angle) && !isNaN(speed))
 				showWind(angle, speed);
 			else
 				showWind(0, 0);
-			document.getElementById("temperature").innerHTML = d[3] + "&#8451;"; //degrees celcius
-			document.getElementById("humidity").innerHTML = d[4] + "%";
-			document.getElementById("pressure").innerHTML = d[5] + "hPa";
-			document.getElementById("PM1").innerHTML = d[6] + "&micro;g/m&sup3;"; //ug/m3
-			document.getElementById("PM2").innerHTML = d[7] + "&micro;g/m&sup3;"; //ug/m3
-			document.getElementById("PM10").innerHTML = d[8] + "&micro;g/m&sup3;";
+			document.getElementById("temperature").innerHTML = d[4] + "&#8451;"; //degrees celcius
+			document.getElementById("humidity").innerHTML = d[5] + "%";
+			document.getElementById("pressure").innerHTML = d[6] + "hPa";
+			document.getElementById("PM1").innerHTML = d[7] + "&micro;g/m&sup3;"; //ug/m3
+			document.getElementById("PM2").innerHTML = d[8] + "&micro;g/m&sup3;"; //ug/m3
+			document.getElementById("PM10").innerHTML = d[9] + "&micro;g/m&sup3;";
 		}
 		
 		//get battery data

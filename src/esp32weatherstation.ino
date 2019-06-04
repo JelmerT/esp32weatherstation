@@ -5,7 +5,7 @@
 #include <WebServer.h>
 #include <SPIFFS.h>
 #include <Preferences.h>
-#include <Adafruit_BME280.h>
+// #include <Adafruit_BME280.h>
 #include <Wire.h>
 #include <pms.h>
 #include "WindSensor.h"
@@ -74,7 +74,8 @@ bool prevWindPinVal = false;
 bool prevRainPinVal = false;
 
 //current sensor values
-int windDir = 0; //degrees
+int windDir = 0; //0-7
+int windDirDeg = 0; //degrees
 float windSpeed = 0; //m/s
 int beaufort = 0;
 String beaufortDesc = "";
@@ -106,7 +107,7 @@ unsigned long lastBattMeasurement = 0;
 
 WindSensor ws(windSpeedPin, windDirPin);
 RainSensor rs(rainPin);
-Adafruit_BME280 bme;
+// Adafruit_BME280 bme;
 
 PMS pms(Serial1);
 PMS::DATA data;
@@ -144,13 +145,13 @@ void setup() {
   rs.initRainSensor();
   
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
-  bme.begin(bmeAddress);
+  // bme.begin(bmeAddress);
   //recommended settings for weather monitoring
-  bme.setSampling(Adafruit_BME280::MODE_FORCED,
-                  Adafruit_BME280::SAMPLING_X1, // temperature
-                  Adafruit_BME280::SAMPLING_X1, // pressure
-                  Adafruit_BME280::SAMPLING_X1, // humidity
-                  Adafruit_BME280::FILTER_OFF);
+  // bme.setSampling(Adafruit_BME280::MODE_FORCED,
+  //                 Adafruit_BME280::SAMPLING_X1, // temperature
+  //                 Adafruit_BME280::SAMPLING_X1, // pressure
+  //                 Adafruit_BME280::SAMPLING_X1, // humidity
+  //                 Adafruit_BME280::FILTER_OFF);
 
   pms.passiveMode();
 
@@ -163,6 +164,9 @@ void loop() {
   //serial debugging
   checkSerial();
   
+  // print analog in windDirPin
+  // Serial.printf("Winddir: %d \n", analogRead(windDirPin));
+
   // wake up pms
   pms.wakeUp();
 
@@ -189,7 +193,7 @@ void loop() {
   }
 
   //read sensors
-  // readWindSensor();
+  readWindSensor();
   // readRainSensor();
 
   //read bme280 every 5 seconds
@@ -244,13 +248,19 @@ void loop() {
     lastBattMeasurement = millis();
     float adcVoltage = ((float)analogRead(measBatt)/4096) * 3.3 + 0.15; //0.15 offset from real value
     batteryVoltage = adcVoltage * 570 / 100 + 0.7; //analog read between 0 and 3.3v * resistor divider + 0.7v diode drop
-    Serial.println("adc voltage: " + String(adcVoltage) + ", batt voltage: " + String(batteryVoltage) + ", currently charging: " + String(batteryCharging ? "yes" : "no"));
+    // Serial.println("adc voltage: " + String(adcVoltage) + ", batt voltage: " + String(batteryVoltage) + ", currently charging: " + String(batteryCharging ? "yes" : "no"));
     if (batteryVoltage > battFull)
       batteryCharging = false;
     if (batteryVoltage < battLow)
       batteryCharging = true;
 
     digitalWrite(solarRelay, batteryCharging);
+
+    // Serial.printf("Wind dir deg: %i\n",ws.getWindDirDeg());
+    // Serial.printf("Wind dir deg: %i\n",analogRead(windDirPin));    
+    // Serial.printf("Wind dir string: %s\n",ws.getWindDirString().c_str());
+    // Serial.println();
+
   }
 }
 
@@ -268,6 +278,7 @@ void readWindSensor() {
 
   ws.determineWindDir();
   windDir = ws.getWindDir();
+  windDirDeg = ws.getWindDirDeg();
 }
 
 void readRainSensor() {
@@ -279,12 +290,12 @@ void readRainSensor() {
   prevRainPinVal = digitalRead(rainPin);
 }
 
-void readBME() {
-  bme.takeForcedMeasurement();
-  temperature = bme.readTemperature();
-  humidity = bme.readHumidity();
-  pressure = bme.readPressure() / 100.0;
-}
+// void readBME() {
+//   bme.takeForcedMeasurement();
+//   temperature = bme.readTemperature();
+//   humidity = bme.readHumidity();
+//   pressure = bme.readPressure() / 100.0;
+// }
 
 bool updatePmReads()
 {

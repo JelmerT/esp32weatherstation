@@ -37,11 +37,20 @@ void WindSensor::determineWindDir() {
   }
   windDir = -1;
 
+  windDirDeg = getWindDirDeg();
+
   addWindDirAvg();
 }
 
 int WindSensor::getWindDir() {
   return (windDir != -1) ? windDir : lastDir; //return the last known value if the current value is -1 (undefined)
+}
+
+int WindSensor::getWindDirDeg() {
+  int deg = 360-((analogRead(dirPin)-windDirAnalogMin)/((windDirAnalogMax-windDirAnalogMin)/360));
+  if (deg > 360){deg = 360;}
+  if (deg < 0){deg = 0;}
+  return deg;
 }
 
 void WindSensor::addWindDirAvg() {

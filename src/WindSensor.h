@@ -18,10 +18,15 @@
 class WindSensor {
   private:
     //                  N     NE    E    SE   S    SW    W     NW
-    int winDirVal[8] = {3000, 1690, 200, 570, 975, 2368, 3905, 3518};
+    // int winDirVal[8] = {3000, 1690, 200, 570, 975, 2368, 3905, 3518};
+    int winDirVal[8] = {3835, 3380, 2925, 2470, 2015, 1560, 1105, 650};
     
+    #define windDirAnalogMax 3835
+    #define windDirAnalogMin 188
+
     int windDir = -1;
     int lastDir = -1;
+    int windDirDeg = -1;
     float windSpeed = 0;
 
     float windDirAvg = 0;
@@ -47,6 +52,7 @@ class WindSensor {
     void updateWindSensor();
     void determineWindDir();
     int getWindDir();
+    int getWindDirDeg();
     float getWindDirAvg(bool clearVars = true);
     String getWindDirString();
     void calcWindSpeed();
