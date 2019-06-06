@@ -15,6 +15,7 @@
 #include "Adafruit_TSL2591.h"
 #include "Adafruit_VEML6075.h"
 #include "Adafruit_BMP3XX.h"
+#include <Adafruit_MAX31865.h>
 
 #define solarRelay 18
 #define measBatt 34
@@ -29,6 +30,12 @@
 #define battLow 11
 #define battFull 13.5
 #define battInterval 2000
+
+// The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
+#define RREF      4300.0
+// The 'nominal' 0-degrees-C resistance of the sensor
+// 100.0 for PT100, 1000.0 for PT1000
+#define RNOMINAL  1000.0
 
 #define sensorInterval 30000 //ms = 5 seconds
 
@@ -113,6 +120,7 @@ RainSensor rs(rainPin);
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
+Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
 
 PMS pms(Serial1);
 PMS::DATA data;
@@ -267,6 +275,42 @@ void advancedLuxRead(void)
   Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
 }
 
+void rtdTemperatureRead(void){
+  uint16_t rtd = mx.readRTD();
+
+  Serial.print("RTD value: "); Serial.println(rtd);
+  float ratio = rtd;
+  ratio /= 32768;
+  Serial.print("Ratio = "); Serial.println(ratio,8);
+  Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
+  Serial.print("Temperature = "); Serial.println(mx.temperature(RNOMINAL, RREF));
+
+  // Check and print any faults
+  uint8_t fault = mx.readFault();
+  if (fault) {
+    Serial.print("Fault 0x"); Serial.println(fault, HEX);
+    if (fault & MAX31865_FAULT_HIGHTHRESH) {
+      Serial.println("RTD High Threshold"); 
+    }
+    if (fault & MAX31865_FAULT_LOWTHRESH) {
+      Serial.println("RTD Low Threshold"); 
+    }
+    if (fault & MAX31865_FAULT_REFINLOW) {
+      Serial.println("REFIN- > 0.85 x Bias"); 
+    }
+    if (fault & MAX31865_FAULT_REFINHIGH) {
+      Serial.println("REFIN- < 0.85 x Bias - FORCE- open"); 
+    }
+    if (fault & MAX31865_FAULT_RTDINLOW) {
+      Serial.println("RTDIN- < 0.85 x Bias - FORCE- open"); 
+    }
+    if (fault & MAX31865_FAULT_OVUV) {
+      Serial.println("Under/Over voltage"); 
+    }
+    mx.clearFault();
+  }
+}
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -305,6 +349,8 @@ void setup() {
     Serial.println("Could not find a valid BMP3 sensor, check wiring!");
     while (1) { delay(100); }
   }
+
+  mx.begin(MAX31865_2WIRE);  // set to 3WIRE or 4WIRE as necessary
 
   /* Display some basic information on LUX sensor */
   // displayLuxSensorDetails();
@@ -401,6 +447,8 @@ void loop() {
       PM2 = pm.pm2;
       PM10 = pm.pm10;
     }
+
+    rtdTemperatureRead();
 
     lastSensorTime = millis();
   }
