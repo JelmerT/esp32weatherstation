@@ -378,10 +378,12 @@ void loop() {
       return;
     }
 
+    temperature = bmp.temperature;
     Serial.print("Temperature = ");
     Serial.print(bmp.temperature);
     Serial.println(" *C");
 
+    pressure = (bmp.pressure / 100.0);
     Serial.print("Pressure = ");
     Serial.print(bmp.pressure / 100.0);
     Serial.println(" hPa");
@@ -471,13 +473,6 @@ void readRainSensor() {
   }
   prevRainPinVal = digitalRead(rainPin);
 }
-
-// void readBME() {
-//   bme.takeForcedMeasurement();
-//   temperature = bme.readTemperature();
-//   humidity = bme.readHumidity();
-//   pressure = bme.readPressure() / 100.0;
-// }
 
 bool updatePmReads()
 {
