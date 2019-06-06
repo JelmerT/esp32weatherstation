@@ -11,6 +11,11 @@
 #include "WindSensor.h"
 #include "RainSensor.h"
 
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+#include "Adafruit_VEML6075.h"
+#include "Adafruit_BMP3XX.h"
+
 #define solarRelay 18
 #define measBatt 34
 
@@ -25,14 +30,13 @@
 #define battFull 13.5
 #define battInterval 2000
 
-#define bmeAddress 0x76
-#define bmeInterval 5000 //ms = 5 seconds
-
-#define pmsInterval 30000 //ms = 0.5 minute
+#define sensorInterval 30000 //ms = 5 seconds
 
 #define lastConnectedTimeout 600000 //ms = 10 minutes: 10 * 60 * 1000
 
 #define hourMs 3600000 //ms (60 * 60 * 1000 ms)
+
+#define SEALEVELPRESSURE_HPA (1013.25)
 
 //network settings
 String APSSID = "WeatherStation";
@@ -99,15 +103,16 @@ float batteryCharging = false;
 String serialIn;
 bool serialRdy = false;
 
-unsigned long lastBMETime = 0;
-unsigned long lastPMSTime = 0;
+unsigned long lastSensorTime = 0;
 unsigned long lastUploadTime = 0;
 unsigned long lastAPConnection = 0;
 unsigned long lastBattMeasurement = 0;
 
 WindSensor ws(windSpeedPin, windDirPin);
 RainSensor rs(rainPin);
-// Adafruit_BME280 bme;
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
+Adafruit_VEML6075 uv = Adafruit_VEML6075();
+Adafruit_BMP3XX bmp; // I2C
 
 PMS pms(Serial1);
 PMS::DATA data;
@@ -123,6 +128,144 @@ WiFiClient* client = NULL;
 WiFiClientSecure* clientS = NULL;
 
 Preferences pref;
+
+/**************************************************************************/
+/*
+    Displays some basic information on this sensor from the unified
+    sensor API sensor_t type (see Adafruit_Sensor for more information)
+*/
+/**************************************************************************/
+void displayLuxSensorDetails(void)
+{
+  sensor_t sensor;
+  tsl.getSensor(&sensor);
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Sensor:       ")); Serial.println(sensor.name);
+  Serial.print  (F("Driver Ver:   ")); Serial.println(sensor.version);
+  Serial.print  (F("Unique ID:    ")); Serial.println(sensor.sensor_id);
+  Serial.print  (F("Max Value:    ")); Serial.print(sensor.max_value); Serial.println(F(" lux"));
+  Serial.print  (F("Min Value:    ")); Serial.print(sensor.min_value); Serial.println(F(" lux"));
+  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution, 4); Serial.println(F(" lux"));  
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
+  delay(500);
+}
+
+/**************************************************************************/
+/*
+    Configures the gain and integration time for the TSL2591
+*/
+/**************************************************************************/
+void configureLuxSensor(void)
+{
+  Serial.println(F("Configuring TSL2591"));
+  // You can change the gain on the fly, to adapt to brighter/dimmer light situations
+  //tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
+  tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
+  //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
+  
+  // Changing the integration time gives you a longer time over which to sense light
+  // longer timelines are slower, but are good in very low light situtations!
+  //tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
+  // tsl.setTiming(TSL2591_INTEGRATIONTIME_200MS);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+  // tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
+  // tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
+  // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
+
+  /* Display the gain and integration time for reference sake */  
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Gain:         "));
+  tsl2591Gain_t gain = tsl.getGain();
+  switch(gain)
+  {
+    case TSL2591_GAIN_LOW:
+      Serial.println(F("1x (Low)"));
+      break;
+    case TSL2591_GAIN_MED:
+      Serial.println(F("25x (Medium)"));
+      break;
+    case TSL2591_GAIN_HIGH:
+      Serial.println(F("428x (High)"));
+      break;
+    case TSL2591_GAIN_MAX:
+      Serial.println(F("9876x (Max)"));
+      break;
+  }
+  Serial.print  (F("Timing:       "));
+  Serial.print((tsl.getTiming() + 1) * 100, DEC); 
+  Serial.println(F(" ms"));
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
+}
+
+void configureUvSensor(void){
+  Serial.println("Configuring VEML6075");
+    // Set the integration constant
+  uv.setIntegrationTime(VEML6075_100MS);
+  // Get the integration constant and print it!
+  Serial.print("Integration time set to ");
+  switch (uv.getIntegrationTime()) {
+    case VEML6075_50MS: Serial.print("50"); break;
+    case VEML6075_100MS: Serial.print("100"); break;
+    case VEML6075_200MS: Serial.print("200"); break;
+    case VEML6075_400MS: Serial.print("400"); break;
+    case VEML6075_800MS: Serial.print("800"); break;
+  }
+  Serial.println("ms");
+
+  // Set the high dynamic mode
+  uv.setHighDynamic(true);
+  // Get the mode
+  if (uv.getHighDynamic()) {
+    Serial.println("High dynamic reading mode");
+  } else {
+    Serial.println("Normal dynamic reading mode");
+  }
+
+  // Set the mode
+  uv.setForcedMode(false);
+  // Get the mode
+  if (uv.getForcedMode()) {
+    Serial.println("Forced reading mode");
+  } else {
+    Serial.println("Continuous reading mode");
+  }
+
+  // Set the calibration coefficients
+  uv.setCoefficients(2.22, 1.33,  // UVA_A and UVA_B coefficients
+                     2.95, 1.74,  // UVB_C and UVB_D coefficients
+                     0.001461, 0.002591); // UVA and UVB responses
+}
+
+void configurePressureSensor(void){
+  Serial.println("Configuring BMP388");
+  // Set up oversampling and filter initialization
+  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  //bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+}
+
+/**************************************************************************/
+/*
+    Show how to read IR and Full Spectrum at once and convert to lux
+*/
+/**************************************************************************/
+void advancedLuxRead(void)
+{
+  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
+  // That way you can do whatever math and comparisons you want!
+  uint32_t lum = tsl.getFullLuminosity();
+  uint16_t ir, full;
+  ir = lum >> 16;
+  full = lum & 0xFFFF;
+  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
+  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
+  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
+  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
+  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
+}
 
 void setup() {
   // put your setup code here, to run once:
@@ -140,18 +283,36 @@ void setup() {
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
   digitalWrite(solarRelay, LOW);
-  
+
   ws.initWindSensor();
   rs.initRainSensor();
   
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
-  // bme.begin(bmeAddress);
-  //recommended settings for weather monitoring
-  // bme.setSampling(Adafruit_BME280::MODE_FORCED,
-  //                 Adafruit_BME280::SAMPLING_X1, // temperature
-  //                 Adafruit_BME280::SAMPLING_X1, // pressure
-  //                 Adafruit_BME280::SAMPLING_X1, // humidity
-  //                 Adafruit_BME280::FILTER_OFF);
+
+    //init LUX sensor
+  if (!tsl.begin()) 
+  {
+    Serial.println(F("No TSL2591 sensor found ... check your wiring?"));
+    while (1) { delay(100); }
+  }
+
+  if (! uv.begin()) {
+    Serial.println("Failed to communicate with VEML6075 sensor, check wiring?");
+    while (1) { delay(100); }
+  }
+
+  if (!bmp.begin()) {
+    Serial.println("Could not find a valid BMP3 sensor, check wiring!");
+    while (1) { delay(100); }
+  }
+
+  /* Display some basic information on LUX sensor */
+  // displayLuxSensorDetails();
+  
+  /* Configure all the sensors */
+  configureLuxSensor();
+  configureUvSensor();
+  configurePressureSensor();
 
   pms.passiveMode();
 
@@ -196,15 +357,40 @@ void loop() {
   readWindSensor();
   // readRainSensor();
 
-  //read bme280 every 5 seconds
-  // if ((lastBMETime + bmeInterval) < millis()) {
-  //   lastBMETime = millis();
-  //   readBME();
-  // }
+  //read sensors every 5 seconds
+  if ((lastSensorTime + sensorInterval) < millis()) {
 
-  //read pms5003 every minute
-  if ((lastPMSTime + pmsInterval) < millis()) {
-    lastPMSTime = millis();
+    // read wind direction
+    Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
+    Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
+
+    // read Lux sensor
+    advancedLuxRead();
+
+    // read UV sensor
+    Serial.print("Raw UVA reading:  "); Serial.println(uv.readUVA());
+    Serial.print("Raw UVB reading:  "); Serial.println(uv.readUVB());
+    Serial.print("UV Index reading: "); Serial.println(uv.readUVI());
+
+    // read pressure sensor
+    if (! bmp.performReading()) {
+      Serial.println("Failed to perform reading :(");
+      return;
+    }
+
+    Serial.print("Temperature = ");
+    Serial.print(bmp.temperature);
+    Serial.println(" *C");
+
+    Serial.print("Pressure = ");
+    Serial.print(bmp.pressure / 100.0);
+    Serial.println(" hPa");
+
+    Serial.print("Approx. Altitude = ");
+    Serial.print(bmp.readAltitude(SEALEVELPRESSURE_HPA));
+    Serial.println(" m");
+
+    //read pms5003
     if (!updatePmReads())
       Serial.println("Failed to read PMS5003");
     else {
@@ -213,17 +399,19 @@ void loop() {
       PM2 = pm.pm2;
       PM10 = pm.pm10;
     }
+
+    lastSensorTime = millis();
   }
-  
+
   //upload data if the uploadperiod has passed and if WiFi is connected
   if (((lastUploadTime + uploadInterval) < millis()) && (WiFi.status() == WL_CONNECTED)) {
     lastUploadTime = millis();
     Serial.println("Upload interval time passed");
-    
+
     windSpeedAvg = ws.getWindSpeedAvg();
     windDirAvg = ws.getWindDirAvg();
     rainAmountAvg = rs.getRainAmount() * hourMs / uploadInterval;
-  
+
     if (thingspeakEnabled) {
       if (uploadToThingspeak())
         Serial.println("Uploaded successfully");
@@ -255,12 +443,6 @@ void loop() {
       batteryCharging = true;
 
     digitalWrite(solarRelay, batteryCharging);
-
-    // Serial.printf("Wind dir deg: %i\n",ws.getWindDirDeg());
-    // Serial.printf("Wind dir deg: %i\n",analogRead(windDirPin));    
-    // Serial.printf("Wind dir string: %s\n",ws.getWindDirString().c_str());
-    // Serial.println();
-
   }
 }
 
