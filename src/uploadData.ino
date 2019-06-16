@@ -79,6 +79,110 @@ bool uploadToSenseBox() {
   return true;
 }
 
+//upload to ubidots
+bool uploadToUbidots(){
+  if (!mqttclient.connected()) {
+    Serial.println("Attempting MQTT connection...");
+    // Attemp to connect
+    if (mqttclient.connect(MQTT_CLIENT_NAME, TOKEN, "")) {
+      Serial.println("Connected");
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.print(mqttclient.state());
+      Serial.println(" try again next time");
+      return false;
+    }
+  }
+
+  if (mqttclient.connected()){
+    Serial.println("Publishing data to Ubidots Cloud");
+    
+    sprintf(topic, "%s%s", "/v1.6/devices/", DEVICE_LABEL);
+
+    String payload_str = "";
+    payload_str +="{";
+    payload_str +="\"temp\":";
+    payload_str +=temperature;
+    payload_str +=",";
+    payload_str +="\"pm1\":";
+    payload_str +=PM1;
+    payload_str +=",";
+    payload_str +="\"pm2\":";
+    payload_str +=PM2;
+    payload_str +=",";
+    payload_str +="\"pm10\":";
+    payload_str +=PM10;
+    payload_str +=",";
+    payload_str +="\"uva\":";
+    payload_str +=UVA;
+    payload_str +=",";
+    payload_str +="\"uvb\":";
+    payload_str +=UVB;
+    payload_str +=",";
+    payload_str +="\"uvindex\":";
+    payload_str +=UVI;
+    payload_str +="}";
+    Serial.println(topic);
+    Serial.println(payload_str);
+    mqttclient.publish(topic, payload_str.c_str());
+    mqttclient.loop();
+
+    payload_str = "";
+    payload_str +="{";
+    payload_str +="\"tsl_lux\":";
+    payload_str +=tsl_lux;
+    payload_str +=",";
+    payload_str +="\"tsl_ir\":";
+    payload_str +=tsl_ir;
+    payload_str +=",";
+    payload_str +="\"tsl_full\":";
+    payload_str +=tsl_full;
+    payload_str +=",";
+    payload_str +="\"tsl_vis\":";
+    payload_str +=tsl_vis;
+    payload_str +="}";
+    Serial.println(payload_str);
+    mqttclient.publish(topic, payload_str.c_str());
+    mqttclient.loop();
+
+    delay(1000);
+    
+    payload_str = "";
+    payload_str +="{";
+    payload_str +="\"bmp_temperature\":";
+    payload_str +=bmp_temperature;
+    payload_str +=",";
+    payload_str +="\"bmp_pressure\":";
+    payload_str +=bmp_pressure;
+    payload_str +=",";
+    payload_str +="\"bmp_altitude\":";
+    payload_str +=bmp_altitude;
+    payload_str +="}";
+    Serial.println(payload_str);
+    mqttclient.publish(topic, payload_str.c_str());
+    mqttclient.loop();
+
+    payload_str = "";
+    payload_str +="{";
+    payload_str +="\"winddirdeg\":";
+    payload_str +="{\"value\":";
+    payload_str +=  windDirDeg;
+    payload_str +=",";
+    payload_str +="\"context\":{\"direction\":\"";
+    payload_str += windDirStr;
+    payload_str +="\"}}";
+    payload_str +="}";
+    Serial.println(payload_str);
+    mqttclient.publish(topic, payload_str.c_str());
+    mqttclient.loop();
+
+    return true;
+  }
+
+  return false;
+}
+
+
 void printUploadValues() {
   Serial.println("Values:");
   Serial.println("WindSpeedAvg:  " + String(windSpeedAvg));

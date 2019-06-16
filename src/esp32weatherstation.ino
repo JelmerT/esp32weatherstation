@@ -8,6 +8,7 @@
 // #include <Adafruit_BME280.h>
 #include <Wire.h>
 #include <pms.h>
+#include <PubSubClient.h>
 #include "WindSensor.h"
 #include "RainSensor.h"
 
@@ -45,6 +46,12 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
+#define TOKEN "A1E-i3ileGBt5Wy54q3CivPDQp1wzxZ6OT" // Put your Ubidots' TOKEN
+#define MQTT_CLIENT_NAME "ESP32WeatherStation1" // MQTT client Name, please enter your own 8-12 alphanumeric character ASCII string; 
+                                           //it should be a random and unique ascii string and different from all other devices
+#define VARIABLE_LABEL "sensor" // Assing the variable label
+#define DEVICE_LABEL "esp32" // Assig the device label
+
 //network settings
 String APSSID = "WeatherStation";
 String ssid;
@@ -77,6 +84,12 @@ String senseBoxPM2Id;
 String senseBoxPM1Id;
 String senseBoxPM10Id;
 
+//ubidots IDs
+bool ubidotsEnabled = 1;
+char payload[100];
+char topic[150];
+char mqttBroker[]  = "things.ubidots.com";
+
 unsigned long uploadInterval = hourMs;
 bool uploaded = false;
 
@@ -92,16 +105,34 @@ int beaufort = 0;
 String beaufortDesc = "";
 float windSpeedAvg = 0;
 float windDirAvg = 0;
+String windDirStr = "";
 float rainAmountAvg = 0;
 
-float temperature = 0; //*C
-float humidity = 0; //%
-float pressure = 0; //hPa
-bool bmeRead = 0;
+//bmp sensor
+float bmp_temperature = 0; //*C
+float bmp_pressure = 0; //hPa
+float bmp_altitude = 0;
 
+//backwards compatibility
+float pressure = 0;
+
+float temperature = 0;
+
+float humidity = 0; //%
+
+// pm sensor
 float PM10 = 0; //particle size: 10 um or less
 float PM2 = 0; //particle size: 2.5 um or less
-float PM1 = 0; //particle size: 2.5 um or less
+float PM1 = 0; //particle size: 1.5 um or less
+
+float UVA = 0;
+float UVB = 0;
+float UVI = 0;
+
+int tsl_lux = 0;
+int tsl_ir = 0;
+int tsl_full = 0;
+int tsl_vis = 0;
 
 float batteryVoltage = 0; //v
 float batteryCharging = false;
@@ -136,6 +167,10 @@ WiFiClient* client = NULL;
 WiFiClientSecure* clientS = NULL;
 
 Preferences pref;
+
+WiFiClient ubidots;
+
+PubSubClient mqttclient(ubidots);
 
 /**************************************************************************/
 /*
@@ -268,11 +303,16 @@ void advancedLuxRead(void)
   uint16_t ir, full;
   ir = lum >> 16;
   full = lum & 0xFFFF;
-  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
-  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
-  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
-  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
-  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
+
+  tsl_lux = tsl.calculateLux(full, ir);
+  tsl_ir = ir;
+  tsl_full = full;
+  tsl_vis = full - ir;
+
+  Serial.print(F("IR: ")); Serial.println(tsl_ir);
+  Serial.print(F("Full: ")); Serial.println(tsl_full);
+  Serial.print(F("Visible: ")); Serial.println(tsl_vis);
+  Serial.print(F("Lux: ")); Serial.println(tsl_lux, 6);
 }
 
 void rtdTemperatureRead(void){
@@ -283,7 +323,8 @@ void rtdTemperatureRead(void){
   ratio /= 32768;
   Serial.print("Ratio = "); Serial.println(ratio,8);
   Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
-  Serial.print("Temperature = "); Serial.println(mx.temperature(RNOMINAL, RREF));
+  temperature = mx.temperature(RNOMINAL, RREF);
+  Serial.print("Temperature = "); Serial.println(temperature);
 
   // Check and print any faults
   uint8_t fault = mx.readFault();
@@ -309,6 +350,15 @@ void rtdTemperatureRead(void){
     }
     mx.clearFault();
   }
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  char p[length + 1];
+  memcpy(p, payload, length);
+  p[length] = NULL;
+  String message(p);
+  Serial.write(payload, length);
+  Serial.println(topic);
 }
 
 void setup() {
@@ -365,6 +415,12 @@ void setup() {
   loadNetworkCredentials();
   loadUploadSettings();
   initWiFi();
+
+  if (ubidotsEnabled){
+    mqttclient.setServer(mqttBroker, 1883);
+    mqttclient.setCallback(callback);
+  }
+
 }
 
 void loop() {
@@ -405,6 +461,7 @@ void loop() {
 
   //read sensors every 5 seconds
   if ((lastSensorTime + sensorInterval) < millis()) {
+    Serial.println("--------------------------------------------");
 
     // read wind direction
     Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
@@ -413,10 +470,14 @@ void loop() {
     // read Lux sensor
     advancedLuxRead();
 
+    UVA = uv.readUVA();
+    UVB = uv.readUVB();
+    UVI = uv.readUVI();
+
     // read UV sensor
-    Serial.print("Raw UVA reading:  "); Serial.println(uv.readUVA());
-    Serial.print("Raw UVB reading:  "); Serial.println(uv.readUVB());
-    Serial.print("UV Index reading: "); Serial.println(uv.readUVI());
+    Serial.print("Raw UVA reading:  "); Serial.println(UVA);
+    Serial.print("Raw UVB reading:  "); Serial.println(UVB);
+    Serial.print("UV Index reading: "); Serial.println(UVI);
 
     // read pressure sensor
     if (! bmp.performReading()) {
@@ -424,18 +485,20 @@ void loop() {
       return;
     }
 
-    temperature = bmp.temperature;
+    bmp_temperature = bmp.temperature;
     Serial.print("Temperature = ");
-    Serial.print(bmp.temperature);
+    Serial.print(bmp_temperature);
     Serial.println(" *C");
 
-    pressure = (bmp.pressure / 100.0);
+    bmp_pressure = (bmp.pressure / 100.0);
+    pressure = bmp_pressure;
     Serial.print("Pressure = ");
-    Serial.print(bmp.pressure / 100.0);
+    Serial.print(bmp_pressure);
     Serial.println(" hPa");
 
+    bmp_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
     Serial.print("Approx. Altitude = ");
-    Serial.print(bmp.readAltitude(SEALEVELPRESSURE_HPA));
+    Serial.print(bmp_altitude);
     Serial.println(" m");
 
     //read pms5003
@@ -446,9 +509,14 @@ void loop() {
       PM1 = pm.pm1;
       PM2 = pm.pm2;
       PM10 = pm.pm10;
+      Serial.print("PM1.5:  "); Serial.println(PM1);
+      Serial.print("PM2.5:  "); Serial.println(PM2);
+      Serial.print("PM10: "); Serial.println(PM10);
     }
 
     rtdTemperatureRead();
+
+    Serial.println("--------------------------------------------");
 
     lastSensorTime = millis();
   }
@@ -479,6 +547,15 @@ void loop() {
     }
     else
       Serial.println("SenseBox disabled");
+
+    if(ubidotsEnabled) {
+      if(uploadToUbidots())
+        Serial.println("Uploaded successfully");
+      else
+        Serial.println("Uploading failed");
+    }
+    else
+      Serial.println("Ubidots disabled");
   }
 
   // handle battery (resistor divider: vBatt|--[470k]-+-[100k]--|gnd)
@@ -511,6 +588,7 @@ void readWindSensor() {
   ws.determineWindDir();
   windDir = ws.getWindDir();
   windDirDeg = ws.getWindDirDeg();
+  windDirStr = ws.getWindDirString();
 }
 
 void readRainSensor() {

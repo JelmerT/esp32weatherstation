@@ -211,6 +211,7 @@ void initWiFi() {
     else {
       configureClient();
       digitalWrite(STALed, HIGH);
+      configureServer();
     }
   }
 }
