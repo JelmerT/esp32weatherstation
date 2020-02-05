@@ -17,6 +17,9 @@
 #include "Adafruit_VEML6075.h"
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_MAX31865.h>
+#include <SoftwareSerial.h>
+#include <MHZ19.h>
+#include "ens210.h" // ENS210 library
 
 #define solarRelay 18
 #define measBatt 34
@@ -38,7 +41,7 @@
 // 100.0 for PT100, 1000.0 for PT1000
 #define RNOMINAL  1000.0
 
-#define sensorInterval 30000 //ms = 5 seconds
+#define sensorInterval 5000 //ms = 5 seconds
 
 #define lastConnectedTimeout 600000 //ms = 10 minutes: 10 * 60 * 1000
 
@@ -152,6 +155,10 @@ Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the senso
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
 Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
+
+SoftwareSerial ss(4,2);
+MHZ19 mhz(&ss);
+ENS210 ens210;
 
 PMS pms(Serial1);
 PMS::DATA data;
@@ -364,6 +371,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+  
   Serial1.begin(9600);
   
   SPIFFS.begin();
@@ -383,24 +391,42 @@ void setup() {
   
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
 
+  ss.begin(9600);
+
+  // Enable ENS210
+  if (!ens210.begin()){
+    Serial.println("Could not find a valid ENS210 sensor, Bailing out");
+    while (1) { delay(100); }    
+  } else {
+    Serial.println("ENS210 started");
+  }
+
     //init LUX sensor
   if (!tsl.begin()) 
   {
-    Serial.println(F("No TSL2591 sensor found ... check your wiring?"));
+    Serial.println(F("No TSL2591 sensor found ... Bailing out."));
     while (1) { delay(100); }
+  } else {
+    Serial.println("TSL2591 started");
   }
 
   if (! uv.begin()) {
-    Serial.println("Failed to communicate with VEML6075 sensor, check wiring?");
+    Serial.println("Failed to communicate with VEML6075 sensor ... Bailing out");
     while (1) { delay(100); }
+  } else {
+    Serial.println("VEML6075 started");
   }
 
   if (!bmp.begin()) {
-    Serial.println("Could not find a valid BMP3 sensor, check wiring!");
+    Serial.println("Could not find a valid BMP3 sensor, Bailing out");
     while (1) { delay(100); }
+  } else {
+    Serial.println("BMP3 started");
   }
 
   mx.begin(MAX31865_2WIRE);  // set to 3WIRE or 4WIRE as necessary
+
+
 
   /* Display some basic information on LUX sensor */
   // displayLuxSensorDetails();
@@ -514,6 +540,33 @@ void loop() {
       Serial.print("PM10: "); Serial.println(PM10);
     }
 
+    //read MHZ19
+    MHZ19_RESULT response = mhz.retrieveData();
+    if (response == MHZ19_RESULT_OK)
+    {
+      Serial.print(F("CO2: "));
+      Serial.println(mhz.getCO2());
+      Serial.print(F("Min CO2: "));
+      Serial.println(mhz.getMinCO2());
+      Serial.print(F("Temperature: "));
+      Serial.println(mhz.getTemperature());
+      Serial.print(F("Accuracy: "));
+      Serial.println(mhz.getAccuracy());
+    }
+    else
+    {
+      Serial.print(F("Error, code: "));
+      Serial.println(response);
+    }
+
+    int t_data, t_status, h_data, h_status;
+    ens210.measure(&t_data, &t_status, &h_data, &h_status );
+
+    Serial.print( ens210.toCelsius(t_data,10)/10.0, 1 ); Serial.print(" C, ");
+    Serial.print( ens210.toPercentageH(h_data,1)      ); Serial.print(" %RH");
+    Serial.println();
+
+    // read
     rtdTemperatureRead();
 
     Serial.println("--------------------------------------------");
