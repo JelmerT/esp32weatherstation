@@ -6,3 +6,5 @@ Design by Roy Aarts.
 The changes in this repo from the original design:  
 - Removed SDS011 PM sensor and replaced by PMS5003 or [PM-E5 (hippocampus)](http://www.topsensor.cn/en/ChanPinZhanShi.html)
 - Adapted project to platform.io
+- prepared parameters for VEML6075 with PTFE window
+- disabled UbiDots 
