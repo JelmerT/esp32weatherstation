@@ -226,7 +226,7 @@ bool connectWiFi() {
   Serial.println("Attempting to connect to " + ssid + ", pass: " + pass);
   WiFi.begin(ssid.c_str(), pass.c_str());
   // Serial.println("connecting");
-  // WiFi.begin("sojumonster", "canister11");
+  // WiFi.begin("tinternxxxxxxx", "saxoxxxxxxxxxxxx");
   for (int timeout = 0; timeout < 15; timeout++) { //max 15 seconds
     int status = WiFi.status();
     if ((status == WL_CONNECTED) || (status == WL_CONNECT_FAILED) || (status == WL_NO_SSID_AVAIL))

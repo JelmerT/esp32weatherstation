@@ -88,7 +88,7 @@ String senseBoxPM1Id;
 String senseBoxPM10Id;
 
 //ubidots IDs
-bool ubidotsEnabled = 1;
+bool ubidotsEnabled = 0;
 char payload[100];
 char topic[150];
 char mqttBroker[]  = "things.ubidots.com";
