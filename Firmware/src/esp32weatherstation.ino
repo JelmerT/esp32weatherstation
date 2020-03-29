@@ -613,7 +613,7 @@ void loop() {
     }
     else
       Serial.println("Ubidots disabled");
-  //}
+  }
 
   // handle battery (resistor divider: vBatt|--[470k]-+-[100k]--|gnd)
   //if ((lastBattMeasurement + battInterval) < millis()) {
@@ -631,10 +631,10 @@ void loop() {
 }
 
 //reads the windsensor and stores the values in global variables
-void readWindSensor() 
+void readWindSensor() {
   if (digitalRead(windSpeedPin) && !prevWindPinVal) {
     ws.calcWindSpeed();
-  
+  }
   prevWindPinVal = digitalRead(windSpeedPin);
 
   ws.updateWindSensor();

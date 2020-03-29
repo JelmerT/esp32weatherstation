@@ -128,16 +128,16 @@ void getWeatherData() {
 void getBatteryData() {
   Serial.println("Battery data requested");
   String response;
-  response += String(batteryVoltage) + ",";
-  response += String(batteryCharging ? "1" : "0");
+  // response += String(batteryVoltage) + ",";
+  // response += String(batteryCharging ? "1" : "0");
   sendData(response);
 }
 
 //toggle the charging of the battery
 void toggleCharging() {
   Serial.println("Toggle charging requested");
-  batteryCharging = !batteryCharging;
-  sendData("Battery charging " + String(batteryCharging ? "started" : "stopped"));
+  // batteryCharging = !batteryCharging;
+  // sendData("Battery charging " + String(batteryCharging ? "started" : "stopped"));
 }
 
 //restart the esp as requested on the webpage
