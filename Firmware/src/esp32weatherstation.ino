@@ -21,8 +21,8 @@
 #include <MHZ19.h>
 #include "ens210.h" // ENS210 library
 
-#define solarRelay 18
-#define measBatt 34
+//#define solarRelay 18
+//#define measBatt 34
 
 #define APPin 22
 #define APLed 19
@@ -31,9 +31,9 @@
 #define windSpeedPin 33
 #define rainPin 27
 
-#define battLow 11
-#define battFull 13.5
-#define battInterval 2000
+//#define battLow 11
+//#define battFull 13.5
+//#define battInterval 2000
 
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
 #define RREF      4300.0
@@ -137,8 +137,8 @@ int tsl_ir = 0;
 int tsl_full = 0;
 int tsl_vis = 0;
 
-float batteryVoltage = 0; //v
-float batteryCharging = false;
+//float batteryVoltage = 0; //v
+//float batteryCharging = false;
 
 //serial variables
 String serialIn;
@@ -147,7 +147,7 @@ bool serialRdy = false;
 unsigned long lastSensorTime = 0;
 unsigned long lastUploadTime = 0;
 unsigned long lastAPConnection = 0;
-unsigned long lastBattMeasurement = 0;
+//unsigned long lastBattMeasurement = 0;
 
 WindSensor ws(windSpeedPin, windDirPin);
 RainSensor rs(rainPin);
@@ -286,6 +286,10 @@ void configureUvSensor(void){
   uv.setCoefficients(2.22, 1.33,  // UVA_A and UVA_B coefficients
                      2.95, 1.74,  // UVB_C and UVB_D coefficients
                      0.001461, 0.002591); // UVA and UVB responses
+  // Set the calibration coefficients for PTFE window 0.7mm thick & 10mm dia.
+  // uv.setCoefficients(2.22, 1.17,  // UVA_A and UVA_B coefficients
+  //                 2.95, 1.58,  // UVB_C and UVB_D coefficients
+  //                 0.007923, 0.008334); // UVA and UVB responses                  
 }
 
 void configurePressureSensor(void){
@@ -379,12 +383,12 @@ void setup() {
   pinMode(APPin, INPUT_PULLUP);
   pinMode(APLed, OUTPUT);
   pinMode(STALed, OUTPUT);
-  pinMode(solarRelay, OUTPUT);
-  pinMode(measBatt, ANALOG);
+  //pinMode(solarRelay, OUTPUT);
+  //pinMode(measBatt, ANALOG);
   
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
-  digitalWrite(solarRelay, LOW);
+  //digitalWrite(solarRelay, LOW);
 
   ws.initWindSensor();
   rs.initRainSensor();
@@ -609,28 +613,28 @@ void loop() {
     }
     else
       Serial.println("Ubidots disabled");
-  }
+  //}
 
   // handle battery (resistor divider: vBatt|--[470k]-+-[100k]--|gnd)
-  if ((lastBattMeasurement + battInterval) < millis()) {
-    lastBattMeasurement = millis();
-    float adcVoltage = ((float)analogRead(measBatt)/4096) * 3.3 + 0.15; //0.15 offset from real value
-    batteryVoltage = adcVoltage * 570 / 100 + 0.7; //analog read between 0 and 3.3v * resistor divider + 0.7v diode drop
+  //if ((lastBattMeasurement + battInterval) < millis()) {
+   // lastBattMeasurement = millis();
+    //float adcVoltage = ((float)analogRead(measBatt)/4096) * 3.3 + 0.15; //0.15 offset from real value
+    //batteryVoltage = adcVoltage * 570 / 100 + 0.7; //analog read between 0 and 3.3v * resistor divider + 0.7v diode drop
     // Serial.println("adc voltage: " + String(adcVoltage) + ", batt voltage: " + String(batteryVoltage) + ", currently charging: " + String(batteryCharging ? "yes" : "no"));
-    if (batteryVoltage > battFull)
-      batteryCharging = false;
-    if (batteryVoltage < battLow)
-      batteryCharging = true;
+    //if (batteryVoltage > battFull)
+      //batteryCharging = false;
+    //if (batteryVoltage < battLow)
+     // batteryCharging = true;
 
-    digitalWrite(solarRelay, batteryCharging);
-  }
+    //digitalWrite(solarRelay, batteryCharging);
+  //}
 }
 
 //reads the windsensor and stores the values in global variables
-void readWindSensor() {
+void readWindSensor() 
   if (digitalRead(windSpeedPin) && !prevWindPinVal) {
     ws.calcWindSpeed();
-  }
+  
   prevWindPinVal = digitalRead(windSpeedPin);
 
   ws.updateWindSensor();
@@ -689,7 +693,7 @@ bool updatePmReads()
                     max2 = data.PM_AE_UG_2_5;
                 sum2 += data.PM_AE_UG_2_5;
                 if (data.PM_AE_UG_10_0 < min10)
-                    min10 = data.PM_AE_UG_1_0;
+                    min10 = data.PM_AE_UG_10_0;
                 if (max10 < data.PM_AE_UG_10_0)
                     max10 = data.PM_AE_UG_10_0;
                 sum10 += data.PM_AE_UG_10_0;
