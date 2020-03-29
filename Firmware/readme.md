@@ -8,3 +8,4 @@ The changes in this repo from the original design:
 - Adapted project to platform.io
 - prepared parameters for VEML6075 with PTFE window
 - disabled UbiDots 
+- WORK IN PRGRESS, does not compile yet, cleaning up code.
