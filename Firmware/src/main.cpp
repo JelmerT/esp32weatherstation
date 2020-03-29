@@ -422,19 +422,19 @@ void checkSerial() {
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-  
-  Serial1.begin(9600);
-  
+
+  Serial1.begin(9600); // PMS sensor
+
   pinMode(APPin, INPUT_PULLUP);
   pinMode(APLed, OUTPUT);
   pinMode(STALed, OUTPUT);
-  
+
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
 
   ws.initWindSensor();
   rs.initRainSensor();
-  
+
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
 
   ss.begin(9600);
