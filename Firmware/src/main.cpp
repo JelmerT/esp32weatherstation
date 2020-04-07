@@ -374,7 +374,6 @@ bool updatePmReads()
 
 void handleSerial() {
   if (serialRdy) {
-    Serial.println(serialIn);
     if (serialIn.indexOf("printData") != -1) {
       Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
       Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
@@ -406,6 +405,7 @@ void handleSerial() {
 void checkSerial() {
   while (Serial.available()) {
     char in = Serial.read();
+    Serial.print(in);
     serialIn += in;
     if (in == '\n')
       serialRdy = true;
