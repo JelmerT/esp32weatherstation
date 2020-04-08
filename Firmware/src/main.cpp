@@ -372,27 +372,30 @@ bool updatePmReads()
     return reads > 0;
 }
 
+void printMeasurements(){
+  Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
+  Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
+  Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
+  Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
+  Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
+  Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
+  Serial.println("Temperature:        " + String(temperature) + "*C");
+  Serial.println("Humidity:           " + String(humidity) + "%");
+  Serial.println("Pressure:           " + String(bmp_pressure) + "hPa");
+  Serial.println("Dust 10um:          " + String(PM10) + "ug/m3");
+  Serial.println("Dust 2.5um:         " + String(PM2) + "ug/m3");
+  Serial.println("Dust 1.0um:         " + String(PM1) + "ug/m3");
+}
 void handleSerial() {
   if (serialRdy) {
-    if (serialIn.indexOf("printData") != -1) {
-      Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
-      Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
-      Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
-      Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
-      Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
-      Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
-      Serial.println("Temperature:        " + String(temperature) + "*C");
-      Serial.println("Humidity:           " + String(humidity) + "%");
-      Serial.println("Pressure:           " + String(bmp_pressure) + "hPa");
-      Serial.println("Dust 10um:          " + String(PM10) + "ug/m3");
-      Serial.println("Dust 2.5um:         " + String(PM2) + "ug/m3");
-      Serial.println("Dust 1.0um:         " + String(PM1) + "ug/m3");
+    if (serialIn.indexOf("p") != -1) {
+      printMeasurements();
     }
 
-    else if (serialIn.indexOf("restart") != -1) {
+    else if (serialIn.indexOf("r") != -1) {
       ESP.restart();
     }
-    else if (serialIn.indexOf("timeActive") != -1) {
+    else if (serialIn.indexOf("t") != -1) {
       unsigned long time = millis();
       Serial.println("Time active: " + String(time) + "ms, " + String(time/1000/60) + " minutes");
     }
@@ -407,10 +410,11 @@ void checkSerial() {
     char in = Serial.read();
     Serial.print(in);
     serialIn += in;
-    if (in == '\n')
+    if (in == '\n'){
       serialRdy = true;
+      handleSerial();
+    }
   }
-  handleSerial();
 }
 
 
