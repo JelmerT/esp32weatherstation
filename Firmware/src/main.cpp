@@ -15,6 +15,7 @@
 #include <SoftwareSerial.h>
 #include <MHZ19.h>
 
+// Pin Configs
 #define APPin 22
 #define APLed 19
 #define STALed 23
@@ -22,68 +23,82 @@
 #define windSpeedPin 33
 #define rainPin 27
 
-
-
+// Firmware configs
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
 #define RREF      4300.0
 // The 'nominal' 0-degrees-C resistance of the sensor
 // 100.0 for PT100, 1000.0 for PT1000
 #define RNOMINAL  1000.0
 
-#define sensorInterval 5000 //ms = 5 seconds
-
-#define lastConnectedTimeout 600000 //ms = 10 minutes: 10 * 60 * 1000
-
-#define hourMs 3600000 //ms (60 * 60 * 1000 ms)
-
-#define SEALEVELPRESSURE_HPA (1013.25) // 
+#define SEALEVELPRESSURE_HPA (1013.25)
 
 
+// Global variables
+//ENS210
+float ens210_temperature = 0;
+int   ens210_humidity = 0;
 
+//VEML6075
+float veml6075_UVA = 0;
+float veml6075_UVB = 0;
+float veml6075_UVI = 0;
 
-bool prevWindPinVal = false;
-bool prevRainPinVal = false;
-
-//current sensor values
-int windDir = 0; //0-7
-int windDirDeg = 0; //degrees
-float windSpeed = 0; //m/s
-int beaufort = 0;
-String beaufortDesc = "";
-float windSpeedAvg = 0;
-float windDirAvg = 0;
-String windDirStr = "";
-float rainAmountAvg = 0;
-
-//bmp sensor
-float bmp_temperature = 0; //*C
-float bmp_pressure = 0; //hPa
-float bmp_pressureHg = 0; //mmHg
-float bmp_altitude = 0;
-
-float temperature = 0;
-float humidity = 0; //%
-
-// pm sensor
-float PM10 = 0; //particle size: 10 um or less
-float PM2 = 0; //particle size: 2.5 um or less
-float PM1 = 0; //particle size: 1.5 um or less
-
-float UVA = 0;
-float UVB = 0;
-float UVI = 0;
-
+//TSL2591
 int tsl_lux = 0;
 int tsl_ir = 0;
 int tsl_full = 0;
 int tsl_vis = 0;
 
+//MAX31865
+float max31865_temperature = 0;
+
+//BMP388
+float bmp_temperature = 0; //*C
+float bmp_pressure = 0; //hPa
+float bmp_pressureHg = 0; //mmHg
+float bmp_altitude = 0;
+
+//PMS5003
+float pms5003_pm1;
+float pms5003_pm2;
+float pms5003_pm10;
+
+
+//MH-Z19B
+float mhz19_co2;
+float mhz19_min_co2;
+float mhz19_temperature;
+float mhz19_accuracy;
+
+//WIND-DIR
+int windDir = 0; //0-7
+int windDirDeg = 0; //degrees
+float windDirAvg = 0;
+String windDirStr = "";
+
+//Wind-SPD
+float windSpeed = 0; //m/s
+int beaufort = 0;
+String beaufortDesc = "";
+float windSpeedAvg = 0;
+bool prevWindPinVal = false;
+
+// Rain
+float rainAmountAvg = 0;
+bool prevRainPinVal = false;
+
+
 //serial variables
 String serialIn;
 bool serialRdy = false;
 
+// time interval variables
+unsigned long sensorInterval = 5000; // in ms
+unsigned long printInterval = 10000; // in ms
 unsigned long lastSensorTime = 0;
+unsigned long lastPrintTime = 0;
 
+// Classes
 WindSensor ws(windSpeedPin, windDirPin);
 RainSensor rs(rainPin);
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
@@ -97,11 +112,6 @@ ENS210 ens210;
 
 PMS pms(Serial1);
 PMS::DATA data;
-struct pms5003
-{
-    float pm1, pm2, pm10;
-};
-pms5003 pm;
 
 /**************************************************************************/
 /*
@@ -119,7 +129,7 @@ void displayLuxSensorDetails(void)
   Serial.print  (F("Unique ID:    ")); Serial.println(sensor.sensor_id);
   Serial.print  (F("Max Value:    ")); Serial.print(sensor.max_value); Serial.println(F(" lux"));
   Serial.print  (F("Min Value:    ")); Serial.print(sensor.min_value); Serial.println(F(" lux"));
-  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution, 4); Serial.println(F(" lux"));  
+  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution, 4); Serial.println(F(" lux"));
   Serial.println(F("------------------------------------"));
   Serial.println(F(""));
   delay(500);
@@ -137,7 +147,7 @@ void configureLuxSensor(void)
   tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
   //tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
   //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
-  
+
   // Changing the integration time gives you a longer time over which to sense light
   // longer timelines are slower, but are good in very low light situtations!
   tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
@@ -147,7 +157,7 @@ void configureLuxSensor(void)
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
 
-  /* Display the gain and integration time for reference sake */  
+  /* Display the gain and integration time for reference sake */
   Serial.println(F("------------------------------------"));
   Serial.print  (F("Gain:         "));
   tsl2591Gain_t gain = tsl.getGain();
@@ -167,12 +177,18 @@ void configureLuxSensor(void)
       break;
   }
   Serial.print  (F("Timing:       "));
-  Serial.print((tsl.getTiming() + 1) * 100, DEC); 
+  Serial.print((tsl.getTiming() + 1) * 100, DEC);
   Serial.println(F(" ms"));
   Serial.println(F("------------------------------------"));
   Serial.println(F(""));
 }
 
+
+/**************************************************************************/
+/*
+    Configures VEML6075
+*/
+/**************************************************************************/
 void configureUvSensor(void){
   Serial.println("Configuring VEML6075");
     // Set the integration constant
@@ -207,15 +223,20 @@ void configureUvSensor(void){
   }
 
   // Set the calibration coefficients
-  uv.setCoefficients(2.22, 1.33,  // UVA_A and UVA_B coefficients
-                     2.95, 1.74,  // UVB_C and UVB_D coefficients
-                     0.001461, 0.002591); // UVA and UVB responses
+  uv.setCoefficients(2.22, 1.33,  // veml6075_UVA_A and veml6075_UVA_B coefficients
+                     2.95, 1.74,  // veml6075_UVB_C and veml6075_UVB_D coefficients
+                     0.001461, 0.002591); // veml6075_UVA and veml6075_UVB responses
   // Set the calibration coefficients for PTFE window 0.7mm thick & 10mm dia.
-  // uv.setCoefficients(2.22, 1.17,  // UVA_A and UVA_B coefficients
-  //                 2.95, 1.58,  // UVB_C and UVB_D coefficients
-  //                 0.007923, 0.008334); // UVA and UVB responses                  
+  // uv.setCoefficients(2.22, 1.17,  // veml6075_UVA_A and veml6075_UVA_B coefficients
+  //                 2.95, 1.58,  // veml6075_UVB_C and veml6075_UVB_D coefficients
+  //                 0.007923, 0.008334); // veml6075_UVA and veml6075_UVB responses
 }
 
+/**************************************************************************/
+/*
+    Configures BMP388
+*/
+/**************************************************************************/
 void configurePressureSensor(void){
   Serial.println("Configuring BMP388");
   // Set up oversampling and filter initialization
@@ -227,7 +248,7 @@ void configurePressureSensor(void){
 
 /**************************************************************************/
 /*
-    Show how to read IR and Full Spectrum at once and convert to lux
+    read IR and Full Spectrum at once and convert to lux
 */
 /**************************************************************************/
 void advancedLuxRead(void)
@@ -243,13 +264,13 @@ void advancedLuxRead(void)
   tsl_ir = ir;
   tsl_full = full;
   tsl_vis = full - ir;
-
-  Serial.print(F("IR: ")); Serial.println(tsl_ir);
-  Serial.print(F("Full: ")); Serial.println(tsl_full);
-  Serial.print(F("Visible: ")); Serial.println(tsl_vis);
-  Serial.print(F("Lux: ")); Serial.println(tsl_lux, 6);
 }
 
+/**************************************************************************/
+/*
+    read MAX31865
+*/
+/**************************************************************************/
 void rtdTemperatureRead(void){
   uint16_t rtd = mx.readRTD();
 
@@ -258,36 +279,39 @@ void rtdTemperatureRead(void){
   ratio /= 32768;
   //Serial.print("Ratio = "); Serial.println(ratio,8);
   //Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
-  temperature = mx.temperature(RNOMINAL, RREF);
-  Serial.print("Temperature = "); Serial.println(temperature);
+  max31865_temperature = mx.temperature(RNOMINAL, RREF);
 
   // Check and print any faults
   uint8_t fault = mx.readFault();
   if (fault) {
     Serial.print("Fault 0x"); Serial.println(fault, HEX);
     if (fault & MAX31865_FAULT_HIGHTHRESH) {
-      Serial.println("RTD High Threshold"); 
+      Serial.println("RTD High Threshold");
     }
     if (fault & MAX31865_FAULT_LOWTHRESH) {
-      Serial.println("RTD Low Threshold"); 
+      Serial.println("RTD Low Threshold");
     }
     if (fault & MAX31865_FAULT_REFINLOW) {
-      Serial.println("REFIN- > 0.85 x Bias"); 
+      Serial.println("REFIN- > 0.85 x Bias");
     }
     if (fault & MAX31865_FAULT_REFINHIGH) {
-      Serial.println("REFIN- < 0.85 x Bias - FORCE- open"); 
+      Serial.println("REFIN- < 0.85 x Bias - FORCE- open");
     }
     if (fault & MAX31865_FAULT_RTDINLOW) {
-      Serial.println("RTDIN- < 0.85 x Bias - FORCE- open"); 
+      Serial.println("RTDIN- < 0.85 x Bias - FORCE- open");
     }
     if (fault & MAX31865_FAULT_OVUV) {
-      Serial.println("Under/Over voltage"); 
+      Serial.println("Under/Over voltage");
     }
     mx.clearFault();
   }
 }
 
-//reads the windsensor and stores the values in global variables
+/**************************************************************************/
+/*
+    read wind
+*/
+/**************************************************************************/
 void readWindSensor() {
   if (digitalRead(windSpeedPin) && !prevWindPinVal) {
     ws.calcWindSpeed();
@@ -305,6 +329,11 @@ void readWindSensor() {
   windDirStr = ws.getWindDirString();
 }
 
+/**************************************************************************/
+/*
+    read rain
+*/
+/**************************************************************************/
 void readRainSensor() {
   //inverted logic
   if (!digitalRead(rainPin) && prevRainPinVal) {
@@ -314,6 +343,11 @@ void readRainSensor() {
   prevRainPinVal = digitalRead(rainPin);
 }
 
+/**************************************************************************/
+/*
+    read PMS5003
+*/
+/**************************************************************************/
 bool updatePmReads()
 {
     int reads = 0;
@@ -360,34 +394,91 @@ bool updatePmReads()
     }
     if (reads > 2)
     {
-        pm.pm1 = (float)(sum1 - min1 - max1) / (float)(reads - 2);
-        pm.pm2 = (float)(sum2 - min2 - max2) / (float)(reads - 2);
-        pm.pm10 = (float)(sum10 - min10 - max10) / (float)(reads - 2);
+        pms5003_pm1 = (float)(sum1 - min1 - max1) / (float)(reads - 2);
+        pms5003_pm2 = (float)(sum2 - min2 - max2) / (float)(reads - 2);
+        pms5003_pm10 = (float)(sum10 - min10 - max10) / (float)(reads - 2);
     }
     else
     {
-        pm.pm1 = min1;
-        pm.pm2 = min2;
-        pm.pm10 = min10;
+        pms5003_pm1 = min1;
+        pms5003_pm2 = min2;
+        pms5003_pm10 = min10;
     }
     return reads > 0;
 }
 
+/**************************************************************************/
+/*
+    Print all currently stored measurements over serial
+*/
+/**************************************************************************/
 void printMeasurements(){
-  Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
-  Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
-  Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
-  Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
-  Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
-  Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
-  Serial.println("Temperature:        " + String(temperature) + "°C");
-  Serial.println("Humidity:           " + String(humidity) + "%");
-  Serial.println("Pressure:           " + String(bmp_pressure) + "hPa");
-  Serial.println("PressureHg:         " + String(bmp_pressureHg) + "mmHg");
-  Serial.println("Dust 10um:          " + String(PM10) + "ug/m3");
-  Serial.println("Dust 2.5um:         " + String(PM2) + "ug/m3");
-  Serial.println("Dust 1.0um:         " + String(PM1) + "ug/m3");
+  Serial.printf("#####################################\n");
+
+  Serial.printf("ENS210\n");
+  Serial.printf("%f °C\n", ens210_temperature);
+  Serial.printf("%i %%RH\n", ens210_humidity);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("VEML6075\n");
+  Serial.printf("Raw veml6075_UVA reading: %f\n", veml6075_UVA);
+  Serial.printf("Raw veml6075_UVB reading: %f\n", veml6075_UVB);
+  Serial.printf("UV Index reading: %f\n", veml6075_UVI);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("TSL2591");
+  Serial.printf("IR: %i\n", tsl_ir);
+  Serial.printf("Full: %i\n", tsl_full);
+  Serial.printf("Visible: %i\n", tsl_vis);
+  Serial.printf("Lux: %i\n", tsl_lux);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("MAX31865\n");
+  Serial.printf("Temperature = %f\n", max31865_temperature);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("BMP388\n");
+  Serial.printf("Temperature = %f °C\n", bmp_temperature);
+  Serial.printf("Pressure = %f hPa", bmp_pressure);
+  Serial.printf("Pressure Hg = %f mmHg\n", bmp_pressureHg);
+  Serial.printf("Approx. Altitude = %f m\n", bmp_altitude);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("PMS5003\n");
+  Serial.printf("PM1.5:  "); Serial.println(pms5003_pm1);
+  Serial.printf("PM2.5:  "); Serial.println(pms5003_pm2);
+  Serial.printf("PM10: "); Serial.println(pms5003_pm10);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("MH-Z19B\n");
+  Serial.printf("CO2: %f\n", mhz19_co2);
+  Serial.printf("Min CO2: %f\n", mhz19_min_co2);
+  Serial.printf("Temperature: %f\n", mhz19_temperature);
+  Serial.printf("Accuracy: %f\n", mhz19_accuracy);
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("WIND-DIR");
+    // Serial.printf("Winddir: %d \n", analogRead(windDirPin));
+    // Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
+    // Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
+
+  Serial.printf("-------------------------------------\n");
+  Serial.printf("Wind-SPD");
+  // Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
+  // Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
+  // Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
+  // Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
+  // Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
+  // Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
+
+  Serial.printf("#####################################\n");
 }
+
+/**************************************************************************/
+/*
+    Serial terminal stuff
+*/
+/**************************************************************************/
 void handleSerial() {
   if (serialRdy) {
     if (serialIn.indexOf("p") != -1) {
@@ -401,7 +492,7 @@ void handleSerial() {
       unsigned long time = millis();
       Serial.println("Time active: " + String(time) + "ms, " + String(time/1000/60) + " minutes");
     }
-    
+
     serialRdy = false;
     serialIn = "";
   }
@@ -448,13 +539,13 @@ void setup() {
   // Enable ENS210
   if (!ens210.begin()){
     Serial.println("Could not find a valid ENS210 sensor, Bailing out");
-    while (1) { delay(100); }    
+    while (1) { delay(100); }
   } else {
     Serial.println("ENS210 started");
   }
 
     //init LUX sensor
-  if (!tsl.begin()) 
+  if (!tsl.begin())
   {
     Serial.println(F("No TSL2591 sensor found ... Bailing out."));
     while (1) { delay(100); }
@@ -481,7 +572,7 @@ void setup() {
 
   /* Display some basic information on LUX sensor */
   // displayLuxSensorDetails();
-  
+
   /* Configure all the sensors */
   configureLuxSensor();
   configureUvSensor();
@@ -498,109 +589,73 @@ void setup() {
 void loop() {
   //serial debugging
   checkSerial();
-  
-  // print analog in windDirPin
-  // Serial.printf("Winddir: %d \n", analogRead(windDirPin));
 
   // wake up pms
   pms.wakeUp();
 
-  //read sensors
-  // readWindSensor();
-  // readRainSensor();
-
   //read sensors every 5 seconds
   if ((lastSensorTime + sensorInterval) < millis()) {
-    Serial.println("--------------------------------------------");
 
-    // read wind direction
-    Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
-    Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
+    // read ENS210
+    int ens210_t_data, ens210_t_status, ens210_h_data, ens210_h_status;
+    ens210.measure(&ens210_t_data, &ens210_t_status, &ens210_h_data, &ens210_h_status );
+    ens210_temperature = ens210.toCelsius(ens210_t_data,10)/10.0;
+    ens210_humidity = ens210.toPercentageH(ens210_h_data,1);
 
-    // read Lux sensor
+    // read VEML6075
+    veml6075_UVA = uv.readUVA();
+    veml6075_UVB = uv.readUVB();
+    veml6075_UVI = uv.readUVI();
+
+    // read TSL2591 sensor
     advancedLuxRead();
 
-    UVA = uv.readUVA();
-    UVB = uv.readUVB();
-    UVI = uv.readUVI();
+    // read MAX31865
+    rtdTemperatureRead();
 
-    // read UV sensor
-    Serial.print("Raw UVA reading:  "); Serial.println(UVA);
-    Serial.print("Raw UVB reading:  "); Serial.println(UVB);
-    Serial.print("UV Index reading: "); Serial.println(UVI);
-
-    // read pressure sensor
+    // read bmp388
     if (! bmp.performReading()) {
-      Serial.println("Failed to perform reading :(");
+      Serial.println("Failed to perform BMP388 reading");
       return;
+    } else {
+      bmp_temperature = bmp.temperature;
+      bmp_pressure = (bmp.pressure / 100.0);
+      bmp_pressureHg = (bmp.pressure / 100.0 * 0.75006);
+      bmp_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
     }
-
-    bmp_temperature = bmp.temperature;
-    Serial.print("Temperature = ");
-    Serial.print(bmp_temperature);
-    Serial.println(" °C");
-
-    bmp_pressure = (bmp.pressure / 100.0);
-    Serial.print("Pressure = ");
-    Serial.print(bmp_pressure);
-    Serial.println(" hPa");
-
-    bmp_pressureHg = (bmp.pressure / 100.0 * 0.75006);
-    Serial.print("Pressure Hg = ");
-    Serial.print(bmp_pressureHg);
-    Serial.println(" mmHg ");
-
-    bmp_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-    Serial.print("Approx. Altitude = ");
-    Serial.print(bmp_altitude);
-    Serial.println(" m");
 
     //read pms5003
     if (!updatePmReads())
       Serial.println("Failed to read PMS5003");
-    else {
-      Serial.println("read PMS5003");
-      PM1 = pm.pm1;
-      PM2 = pm.pm2;
-      PM10 = pm.pm10;
-      Serial.print("PM1.5:  "); Serial.println(PM1);
-      Serial.print("PM2.5:  "); Serial.println(PM2);
-      Serial.print("PM10: "); Serial.println(PM10);
-    }
 
     //read MHZ19
-    MHZ19_RESULT response = mhz.retrieveData();
-    if (response == MHZ19_RESULT_OK)
+    if (mhz.retrieveData() == MHZ19_RESULT_OK)
     {
-      Serial.print(F("CO2: "));
-      Serial.println(mhz.getCO2());
-      // Serial.print(F("Min CO2: "));
-      // Serial.println(mhz.getMinCO2());
-      Serial.print(F("Temperature: "));
-      Serial.println(mhz.getTemperature());
-      Serial.print(F("Accuracy: "));
-      Serial.println(mhz.getAccuracy());
+      mhz19_co2 = mhz.getCO2();
+      mhz19_min_co2 = mhz.getMinCO2();
+      mhz19_temperature = mhz.getTemperature();
+      mhz19_accuracy = mhz.getAccuracy();
     }
     else
     {
-      Serial.print(F("Error, code: "));
-      Serial.println(response);
+      Serial.print(F("MHZ19 Error"));
     }
 
-    int t_data, t_status, h_data, h_status;
-    ens210.measure(&t_data, &t_status, &h_data, &h_status );
+    //read wind sensor
+    // readWindSensor();
 
-    Serial.print( ens210.toCelsius(t_data,10)/10.0, 1 ); Serial.print(" °C, ");
-    Serial.print( ens210.toPercentageH(h_data,1)      ); Serial.print(" %RH");
-    Serial.println();
-
-    // read
-    rtdTemperatureRead();
-
-    Serial.println("--------------------------------------------");
+    // read rain sensor
+    // readRainSensor();
 
     lastSensorTime = millis();
   }
+
+  //print readings every 10 seconds
+  if ((lastPrintTime + printInterval) < millis()) {
+    printMeasurements();
+    lastPrintTime = millis();
+  }
+
 }
 
 
