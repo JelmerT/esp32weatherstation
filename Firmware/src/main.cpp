@@ -36,7 +36,7 @@
 
 #define hourMs 3600000 //ms (60 * 60 * 1000 ms)
 
-#define SEALEVELPRESSURE_HPA (1013.25)
+#define SEALEVELPRESSURE_HPA (1013.25) // 
 
 
 
@@ -58,6 +58,7 @@ float rainAmountAvg = 0;
 //bmp sensor
 float bmp_temperature = 0; //*C
 float bmp_pressure = 0; //hPa
+float bmp_pressureHg = 0; //mmHg
 float bmp_altitude = 0;
 
 float temperature = 0;
@@ -133,15 +134,15 @@ void configureLuxSensor(void)
 {
   Serial.println(F("Configuring TSL2591"));
   // You can change the gain on the fly, to adapt to brighter/dimmer light situations
-  //tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
-  tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
+  tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
+  //tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
   //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
   
   // Changing the integration time gives you a longer time over which to sense light
   // longer timelines are slower, but are good in very low light situtations!
-  //tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_200MS);
-  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+  //tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
   // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
@@ -252,11 +253,11 @@ void advancedLuxRead(void)
 void rtdTemperatureRead(void){
   uint16_t rtd = mx.readRTD();
 
-  Serial.print("RTD value: "); Serial.println(rtd);
+  //Serial.print("RTD value: "); Serial.println(rtd);
   float ratio = rtd;
   ratio /= 32768;
-  Serial.print("Ratio = "); Serial.println(ratio,8);
-  Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
+  //Serial.print("Ratio = "); Serial.println(ratio,8);
+  //Serial.print("Resistance = "); Serial.println(RREF*ratio,8);
   temperature = mx.temperature(RNOMINAL, RREF);
   Serial.print("Temperature = "); Serial.println(temperature);
 
@@ -379,9 +380,10 @@ void printMeasurements(){
   Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
   Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
   Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
-  Serial.println("Temperature:        " + String(temperature) + "*C");
+  Serial.println("Temperature:        " + String(temperature) + "°C");
   Serial.println("Humidity:           " + String(humidity) + "%");
   Serial.println("Pressure:           " + String(bmp_pressure) + "hPa");
+  Serial.println("PressureHg:         " + String(bmp_pressureHg) + "mmHg");
   Serial.println("Dust 10um:          " + String(PM10) + "ug/m3");
   Serial.println("Dust 2.5um:         " + String(PM2) + "ug/m3");
   Serial.println("Dust 1.0um:         " + String(PM1) + "ug/m3");
@@ -536,12 +538,17 @@ void loop() {
     bmp_temperature = bmp.temperature;
     Serial.print("Temperature = ");
     Serial.print(bmp_temperature);
-    Serial.println(" *C");
+    Serial.println(" °C");
 
     bmp_pressure = (bmp.pressure / 100.0);
     Serial.print("Pressure = ");
     Serial.print(bmp_pressure);
     Serial.println(" hPa");
+
+    bmp_pressureHg = (bmp.pressure / 100.0 * 0.75006);
+    Serial.print("Pressure Hg = ");
+    Serial.print(bmp_pressureHg);
+    Serial.println(" mmHg ");
 
     bmp_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
     Serial.print("Approx. Altitude = ");
@@ -583,7 +590,7 @@ void loop() {
     int t_data, t_status, h_data, h_status;
     ens210.measure(&t_data, &t_status, &h_data, &h_status );
 
-    Serial.print( ens210.toCelsius(t_data,10)/10.0, 1 ); Serial.print(" C, ");
+    Serial.print( ens210.toCelsius(t_data,10)/10.0, 1 ); Serial.print(" °C, ");
     Serial.print( ens210.toPercentageH(h_data,1)      ); Serial.print(" %RH");
     Serial.println();
 
