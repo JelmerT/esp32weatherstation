@@ -416,17 +416,17 @@ void printMeasurements(){
   Serial.printf("#####################################\n");
 
   Serial.printf("ENS210\n");
-  Serial.printf("%f °C\n", ens210_temperature);
-  Serial.printf("%i %%RH\n", ens210_humidity);
+  Serial.printf("ENS-T° %f °C\n", ens210_temperature);
+  Serial.printf("Humidity %i %%RH\n", ens210_humidity);
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("VEML6075\n");
-  Serial.printf("Raw veml6075_UVA reading: %f\n", veml6075_UVA);
-  Serial.printf("Raw veml6075_UVB reading: %f\n", veml6075_UVB);
-  Serial.printf("UV Index reading: %f\n", veml6075_UVI);
+  Serial.printf("Raw UVA: %f\n", veml6075_UVA);
+  Serial.printf("Raw UVB: %f\n", veml6075_UVB);
+  Serial.printf("UV Index: %f\n", veml6075_UVI);
 
   Serial.printf("-------------------------------------\n");
-  Serial.printf("TSL2591");
+  Serial.printf("TSL2591\n");
   Serial.printf("IR: %i\n", tsl_ir);
   Serial.printf("Full: %i\n", tsl_full);
   Serial.printf("Visible: %i\n", tsl_vis);
@@ -434,27 +434,27 @@ void printMeasurements(){
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("MAX31865\n");
-  Serial.printf("Temperature = %f\n", max31865_temperature);
+  Serial.printf("PT1000-T°: %f\n", max31865_temperature);
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("BMP388\n");
-  Serial.printf("Temperature = %f °C\n", bmp_temperature);
-  Serial.printf("Pressure = %f hPa", bmp_pressure);
-  Serial.printf("Pressure Hg = %f mmHg\n", bmp_pressureHg);
-  Serial.printf("Approx. Altitude = %f m\n", bmp_altitude);
+  Serial.printf("BMP-T°: %f °C\n", bmp_temperature);
+  Serial.printf("Pressure: %f hPa\n", bmp_pressure);
+  Serial.printf("Pressure Hg: %f mmHg\n", bmp_pressureHg);
+  Serial.printf("Approx. Altitude: %f m\n", bmp_altitude);
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("PMS5003\n");
   Serial.printf("PM1.5:  "); Serial.println(pms5003_pm1);
   Serial.printf("PM2.5:  "); Serial.println(pms5003_pm2);
-  Serial.printf("PM10: "); Serial.println(pms5003_pm10);
+  Serial.printf("PM10:  "); Serial.println(pms5003_pm10);
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("MH-Z19B\n");
   Serial.printf("CO2: %f\n", mhz19_co2);
-  Serial.printf("Min CO2: %f\n", mhz19_min_co2);
-  Serial.printf("Temperature: %f\n", mhz19_temperature);
-  Serial.printf("Accuracy: %f\n", mhz19_accuracy);
+  //Serial.printf("Min CO2: %f\n", mhz19_min_co2);
+  Serial.printf("SensorT°: %f\n", mhz19_temperature);
+  //Serial.printf("Accuracy: %f\n", mhz19_accuracy);
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("WIND-DIR");
