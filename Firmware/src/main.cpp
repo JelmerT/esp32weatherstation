@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
-#include "WindSensor.h"
-#include "RainSensor.h"
+//#include "WindSensor.h"
+//#include "RainSensor.h"
 
 #include <Wire.h>
 
@@ -19,9 +19,9 @@
 #define APPin 22
 #define APLed 19
 #define STALed 23
-#define windDirPin 32
-#define windSpeedPin 33
-#define rainPin 27
+//#define windDirPin 32
+//#define windSpeedPin 33
+//#define rainPin 27
 
 // Firmware configs
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
@@ -71,21 +71,21 @@ float mhz19_temperature;
 float mhz19_accuracy;
 
 //WIND-DIR
-int windDir = 0; //0-7
-int windDirDeg = 0; //degrees
-float windDirAvg = 0;
-String windDirStr = "";
+//int windDir = 0; //0-7
+//int windDirDeg = 0; //degrees
+//float windDirAvg = 0;
+//String windDirStr = "";
 
 //Wind-SPD
-float windSpeed = 0; //m/s
-int beaufort = 0;
-String beaufortDesc = "";
-float windSpeedAvg = 0;
-bool prevWindPinVal = false;
+//float windSpeed = 0; //m/s
+//int beaufort = 0;
+//String beaufortDesc = "";
+//float windSpeedAvg = 0;
+//bool prevWindPinVal = false;
 
 // Rain
-float rainAmountAvg = 0;
-bool prevRainPinVal = false;
+//float rainAmountAvg = 0;
+//bool prevRainPinVal = false;
 
 
 //serial variables
@@ -99,8 +99,8 @@ unsigned long lastSensorTime = 0;
 unsigned long lastPrintTime = 0;
 
 // Classes
-WindSensor ws(windSpeedPin, windDirPin);
-RainSensor rs(rainPin);
+//WindSensor ws(windSpeedPin, windDirPin);
+//RainSensor rs(rainPin);
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
@@ -312,36 +312,36 @@ void rtdTemperatureRead(void){
     read wind
 */
 /**************************************************************************/
-void readWindSensor() {
-  if (digitalRead(windSpeedPin) && !prevWindPinVal) {
-    ws.calcWindSpeed();
-  }
-  prevWindPinVal = digitalRead(windSpeedPin);
+//void readWindSensor() {
+  //if (digitalRead(windSpeedPin) && !prevWindPinVal) {
+    //ws.calcWindSpeed();
+  //}
+  //prevWindPinVal = digitalRead(windSpeedPin);
 
-  ws.updateWindSensor();
-  windSpeed = ws.getWindSpeed();
-  beaufort = ws.getBeaufort();
-  beaufortDesc = ws.getBeaufortDesc();
+  //ws.updateWindSensor();
+  //windSpeed = ws.getWindSpeed();
+  //beaufort = ws.getBeaufort();
+  //beaufortDesc = ws.getBeaufortDesc();
 
-  ws.determineWindDir();
-  windDir = ws.getWindDir();
-  windDirDeg = ws.getWindDirDeg();
-  windDirStr = ws.getWindDirString();
-}
+  //ws.determineWindDir();
+  //windDir = ws.getWindDir();
+  //windDirDeg = ws.getWindDirDeg();
+  //windDirStr = ws.getWindDirString();
+//}
 
 /**************************************************************************/
 /*
     read rain
 */
 /**************************************************************************/
-void readRainSensor() {
+//void readRainSensor() {
   //inverted logic
-  if (!digitalRead(rainPin) && prevRainPinVal) {
-    Serial.println("Rainbucket tipped");
-    rs.calcRainAmount();
-  }
-  prevRainPinVal = digitalRead(rainPin);
-}
+//  if (!digitalRead(rainPin) && prevRainPinVal) {
+ //   Serial.println("Rainbucket tipped");
+  //  rs.calcRainAmount();
+ // }
+ // prevRainPinVal = digitalRead(rainPin);
+//}
 
 /**************************************************************************/
 /*
@@ -412,8 +412,26 @@ bool updatePmReads()
     Print all currently stored measurements over serial
 */
 /**************************************************************************/
+void blink()
+
+{
+pinMode(19, OUTPUT);
+}
+
+void Led() 
+
+{
+digitalWrite(19, HIGH); 
+delay(1000); 
+digitalWrite(19, LOW); 
+//delay(1000); 
+}
 void printMeasurements(){
+  unsigned long time = millis();
   Serial.printf("#####################################\n");
+  Serial.println("Time active: " + String(time) + "ms\n " + String(time/1000/60) + " minutes\n " + String(time/1000/3600) + " Hours");
+  Serial.printf("#####################################\n");
+  Serial.printf("\n");
 
   Serial.printf("ENS210\n");
   Serial.printf("ENS-T° %.2f °C\n", ens210_temperature);
@@ -451,19 +469,19 @@ void printMeasurements(){
 
   Serial.printf("-------------------------------------\n");
   Serial.printf("MH-Z19B\n");
-  Serial.printf("CO2: %.0f -%-\n", mhz19_co2);
+  Serial.printf("CO2: %.0f ppm\n", mhz19_co2);
   //Serial.printf("Min CO2: %f\n", mhz19_min_co2);
   Serial.printf("SensorT°: %.1f\n", mhz19_temperature);
   //Serial.printf("Accuracy: %f\n", mhz19_accuracy);
 
-  Serial.printf("-------------------------------------\n");
-  Serial.printf("WIND-DIR \n");
+  //Serial.printf("-------------------------------------\n");
+  //Serial.printf("WIND-DIR \n");
     // Serial.printf("Winddir: %d \n", analogRead(windDirPin));
     // Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
     // Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
 
-  Serial.printf("-------------------------------------\n");
-  Serial.printf("Wind-SPD \n");
+  //Serial.printf("-------------------------------------\n");
+  //Serial.printf("Wind-SPD \n");
   // Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
   // Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
   // Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
@@ -471,7 +489,7 @@ void printMeasurements(){
   // Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
   // Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
 
-  Serial.printf("#####################################\n");
+  Serial.printf("##################xx#################\n");
 }
 
 /**************************************************************************/
@@ -529,8 +547,8 @@ void setup() {
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
 
-  ws.initWindSensor();
-  rs.initRainSensor();
+  //ws.initWindSensor();
+  //rs.initRainSensor();
 
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
 
