@@ -15,6 +15,9 @@
 #include <SoftwareSerial.h>
 #include <MHZ19.h>
 
+// time library
+#include <TimeLib.h>
+
 // Pin Configs
 #define APPin 22
 #define APLed 19
@@ -407,31 +410,45 @@ bool updatePmReads()
     return reads > 0;
 }
 
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(" ");
+  Serial.print(month());
+  Serial.print(" ");
+  Serial.print(year()); 
+  Serial.println(); 
+}
+
 /**************************************************************************/
 /*
     Print all currently stored measurements over serial
 */
 /**************************************************************************/
-void blink()
-
-{
-pinMode(19, OUTPUT);
-}
-
-void Led() 
-
-{
-digitalWrite(19, HIGH); 
-delay(1000); 
-digitalWrite(19, LOW); 
-//delay(1000); 
-}
 void printMeasurements(){
   unsigned long time = millis();
   Serial.printf("#####################################\n");
   Serial.println("Time active: " + String(time) + "ms\n " + String(time/1000/60) + " minutes\n " + String(time/1000/3600) + " Hours");
   Serial.printf("#####################################\n");
   Serial.printf("\n");
+
+  Serial.println("Current time:");
+  digitalClockDisplay();
+  Serial.printf("\n");
+
+  Serial.printf("Current unix time: %lu\n\n", now());
 
   Serial.printf("ENS210\n");
   Serial.printf("ENS-T° %.2f °C\n", ens210_temperature);
@@ -494,6 +511,19 @@ void printMeasurements(){
 
 /**************************************************************************/
 /*
+    Blink Led
+*/
+/**************************************************************************/
+
+void blinkLed(int ledPin) {
+digitalWrite(ledPin, HIGH); 
+delay(1000); 
+digitalWrite(ledPin, LOW); 
+//delay(1000); 
+}
+
+/**************************************************************************/
+/*
     Serial terminal stuff
 */
 /**************************************************************************/
@@ -502,13 +532,22 @@ void handleSerial() {
     if (serialIn.indexOf("p") != -1) {
       printMeasurements();
     }
-
     else if (serialIn.indexOf("r") != -1) {
       ESP.restart();
     }
     else if (serialIn.indexOf("t") != -1) {
       unsigned long time = millis();
       Serial.println("Time active: " + String(time) + "ms, " + String(time/1000/60) + " minutes");
+    }
+    else if (serialIn.indexOf("T") != -1) {
+      unsigned long pctime;
+      const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
+
+      serialIn.remove(0,1); // remove the T
+      pctime = serialIn.toInt(); // read the unix time
+      if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+        setTime(pctime); // Sync Arduino clock to the time received on the serial port
+      }
     }
 
     serialRdy = false;
@@ -546,6 +585,8 @@ void setup() {
 
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
+
+  setTime(1357041600); // jan 1 2013
 
   //ws.initWindSensor();
   //rs.initRainSensor();
@@ -670,6 +711,8 @@ void loop() {
 
   //print readings every 10 seconds
   if ((lastPrintTime + printInterval) < millis()) {
+    blinkLed(APLed);
+    blinkLed(STALed); 
     printMeasurements();
     lastPrintTime = millis();
   }
