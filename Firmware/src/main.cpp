@@ -1,7 +1,6 @@
 #include <Arduino.h>
 
 //#include "WindSensor.h"
-//#include "RainSensor.h"
 
 #include <Wire.h>
 
@@ -25,7 +24,6 @@
 #define STALed 23
 //#define windDirPin 32
 //#define windSpeedPin 33
-//#define rainPin 27
 
 // Firmware configs
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
@@ -34,7 +32,8 @@
 // 100.0 for PT100, 1000.0 for PT1000
 #define RNOMINAL  1000.0
 
-#define SEALEVELPRESSURE_HPA (1013.25)
+#define SEALEVELPRESSURE_HPA 1013.25
+#define RAIN_BUCKET_SIZE 0.33
 
 
 // Global variables
@@ -89,23 +88,24 @@ float mhz19_accuracy;
 //bool prevWindPinVal = false;
 
 // Rain
-//float rainAmountAvg = 0;
-//bool prevRainPinVal = false;
+float rainAmount = 0;
+bool prevHallVal = false;
 
+// Hall Sensor
+int hall_sensor_value = 0;
 
 //serial variables
 String serialIn;
 bool serialRdy = false;
 
 // time interval variables
-unsigned long sensorInterval = 5000; // in ms
+unsigned long sensorInterval = 50000; // in ms
 unsigned long printInterval = 10000; // in ms
 unsigned long lastSensorTime = 0;
 unsigned long lastPrintTime = 0;
 
 // Classes
 //WindSensor ws(windSpeedPin, windDirPin);
-//RainSensor rs(rainPin);
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
@@ -336,26 +336,6 @@ void rtdTemperatureRead(void){
 
 /**************************************************************************/
 /*
-    read rain
-*/
-/**************************************************************************/
-//void readRainSensor() {
-  //inverted logic
-//  if (!digitalRead(rainPin) && prevRainPinVal) {
- //   Serial.println("Rainbucket tipped");
-  //  rs.calcRainAmount();
- // }
- // prevRainPinVal = digitalRead(rainPin);
-//}
-/**************************************************************************/
-/*
-    read Hall
-*/
-/**************************************************************************/
-
-    int hall_sensor_value = hallRead();
-/**************************************************************************/
-/*
     read PMS5003
 */
 /**************************************************************************/
@@ -498,11 +478,6 @@ void printMeasurements(){
   //Serial.printf("Min CO2: %f\n", mhz19_min_co2);
   Serial.printf("SensorT°: %.1f\n", mhz19_temperature);
   //Serial.printf("Accuracy: %f\n", mhz19_accuracy);
-  Serial.printf("-------------------------------------\n");
-
-//Hall read
-  Serial.printf("Hall sensor value = ");
-  Serial.println(hall_sensor_value);
 
   //Serial.printf("-------------------------------------\n");
   //Serial.printf("WIND-DIR \n");
@@ -510,14 +485,14 @@ void printMeasurements(){
     // Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
     // Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
 
-  //Serial.printf("-------------------------------------\n");
+  Serial.printf("-------------------------------------\n");
   //Serial.printf("Wind-SPD \n");
   // Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
   // Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
   // Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
   // Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
   // Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
-  // Serial.println("Rain amount:        " + String(rs.getRainAmount(false)) + "mm");
+  Serial.printf("Rain amount: %fmm", rainAmount);
 
   Serial.printf("##################xx#################\n");
 }
@@ -529,10 +504,40 @@ void printMeasurements(){
 /**************************************************************************/
 
 void blinkLed(int ledPin) {
-digitalWrite(ledPin, HIGH); 
-delay(1000); 
-digitalWrite(ledPin, LOW); 
-//delay(1000); 
+  digitalWrite(ledPin, HIGH); 
+  delay(1000); 
+  digitalWrite(ledPin, LOW); 
+  //delay(1000); 
+}
+
+/**************************************************************************/
+/*
+    read Hall
+*/
+/**************************************************************************/
+
+bool readMagnet(){
+  hall_sensor_value = hallRead();
+  int trigger_value = 15;
+  if (hall_sensor_value > trigger_value || hall_sensor_value < (trigger_value * -1))
+    return true;
+
+  return false;
+}
+
+/**************************************************************************/
+/*
+    read rain
+*/
+/**************************************************************************/
+void readRainSensor() {
+  //inverted logic
+ if (!readMagnet() && prevHallVal) {
+   rainAmount += RAIN_BUCKET_SIZE;
+   Serial.printf("Rainbucket tipped: %f", rainAmount);
+   blinkLed(STALed);
+ }
+ prevHallVal = readMagnet();
 }
 
 /**************************************************************************/
@@ -602,7 +607,6 @@ void setup() {
   setTime(1357041600); // jan 1 2013
 
   //ws.initWindSensor();
-  //rs.initRainSensor();
 
   Wire.begin(25, 26, 100000); //sda, scl, freq=100kHz
 
@@ -665,6 +669,9 @@ void loop() {
   // wake up pms
   pms.wakeUp();
 
+  // Check rain sensor
+  readRainSensor();
+
   //read sensors every 5 seconds
   if ((lastSensorTime + sensorInterval) < millis()) {
 
@@ -684,9 +691,6 @@ void loop() {
 
     // read MAX31865
     rtdTemperatureRead();
-    
-    //Hall sensor read
-    hall_sensor_value = hallRead();
 
     // read bmp388
     if (! bmp.performReading()) {
@@ -719,16 +723,12 @@ void loop() {
     //read wind sensor
     // readWindSensor();
 
-    // read rain sensor
-    // readRainSensor();
-
     lastSensorTime = millis();
   }
 
   //print readings every 10 seconds
   if ((lastPrintTime + printInterval) < millis()) {
     blinkLed(APLed);
-    blinkLed(STALed); 
     printMeasurements();
     lastPrintTime = millis();
   }
