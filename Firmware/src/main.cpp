@@ -15,6 +15,7 @@
 #include <SoftwareSerial.h>
 #include <MHZ19.h>
 
+
 // time library
 #include <TimeLib.h>
 
@@ -37,6 +38,7 @@
 
 
 // Global variables
+
 //ENS210
 float ens210_temperature = 0;
 int   ens210_humidity = 0;
@@ -345,7 +347,13 @@ void rtdTemperatureRead(void){
  // }
  // prevRainPinVal = digitalRead(rainPin);
 //}
+/**************************************************************************/
+/*
+    read Hall
+*/
+/**************************************************************************/
 
+    int hall_sensor_value = hallRead();
 /**************************************************************************/
 /*
     read PMS5003
@@ -490,6 +498,11 @@ void printMeasurements(){
   //Serial.printf("Min CO2: %f\n", mhz19_min_co2);
   Serial.printf("SensorT°: %.1f\n", mhz19_temperature);
   //Serial.printf("Accuracy: %f\n", mhz19_accuracy);
+  Serial.printf("-------------------------------------\n");
+
+//Hall read
+  Serial.printf("Hall sensor value = ");
+  Serial.println(hall_sensor_value);
 
   //Serial.printf("-------------------------------------\n");
   //Serial.printf("WIND-DIR \n");
@@ -671,6 +684,9 @@ void loop() {
 
     // read MAX31865
     rtdTemperatureRead();
+    
+    //Hall sensor read
+    hall_sensor_value = hallRead();
 
     // read bmp388
     if (! bmp.performReading()) {
