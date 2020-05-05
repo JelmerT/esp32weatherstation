@@ -492,7 +492,7 @@ void printMeasurements(){
   // Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
   // Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
   // Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
-  Serial.printf("Rain amount: %fmm", rainAmount);
+  Serial.printf("Rain amount: %.2fmm\n", rainAmount);
 
   Serial.printf("##################xx#################\n");
 }
@@ -534,7 +534,7 @@ void readRainSensor() {
   //inverted logic
  if (!readMagnet() && prevHallVal) {
    rainAmount += RAIN_BUCKET_SIZE;
-   Serial.printf("Rainbucket tipped: %f", rainAmount);
+   Serial.printf("Rainbucket tipped: %.2fmm\n", rainAmount);
    blinkLed(STALed);
  }
  prevHallVal = readMagnet();
@@ -655,6 +655,10 @@ void setup() {
   configurePressureSensor();
 
   pms.passiveMode();
+
+  // init rain sensor
+  prevHallVal = readMagnet();
+  Serial.printf("Hall value initialized as %d\n", prevHallVal);
 }
 
 /**************************************************************************/
