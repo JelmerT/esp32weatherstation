@@ -17,6 +17,7 @@
 
 // time library
 #include <TimeLib.h>
+#include <RV-3028-C7.h>
 
 // Pin Configs
 #define APPin 22
@@ -110,6 +111,7 @@ Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the senso
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
 Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
+RV3028 rtc;
 
 SoftwareSerial ss(4,2);
 MHZ19 mhz(&ss);
@@ -518,7 +520,7 @@ void blinkLed(int ledPin) {
 
 bool readMagnet(){
   hall_sensor_value = hallRead();
-  int trigger_value = 15;
+  int trigger_value = 40;
   if (hall_sensor_value > trigger_value || hall_sensor_value < (trigger_value * -1))
     return true;
 
@@ -564,7 +566,8 @@ void handleSerial() {
       serialIn.remove(0,1); // remove the T
       pctime = serialIn.toInt(); // read the unix time
       if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
-        setTime(pctime); // Sync Arduino clock to the time received on the serial port
+        setTime(pctime); // Sync ESP clock to the time received on the serial port
+        
       }
     }
 
@@ -659,6 +662,11 @@ void setup() {
   // init rain sensor
   prevHallVal = readMagnet();
   Serial.printf("Hall value initialized as %d\n", prevHallVal);
+
+  if (rtc.begin() == false) {
+  Serial.println("Something went wrong, check wiring");
+  while (1);
+  }
 }
 
 /**************************************************************************/
