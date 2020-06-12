@@ -440,6 +440,17 @@ void printMeasurements(){
 
   Serial.printf("Current unix time: %lu\n\n", now());
 
+  Serial.println("Current time from RTC:");
+  if (rtc.updateTime() == false) //Updates the time variables from RTC
+  {
+    Serial.print("RTC failed to update");
+  } else {
+    String currentTime = rtc.stringTimeStamp();
+    Serial.println(currentTime);
+    Serial.print("UNIX Time (rtc): "); Serial.println(rtc.getUNIX());
+    Serial.println();
+  }
+
   Serial.printf("ENS210\n");
   Serial.printf("ENS-T° %.2f °C\n", ens210_temperature);
   Serial.printf("Humidity %i %%RH\n", ens210_humidity);
@@ -567,7 +578,9 @@ void handleSerial() {
       pctime = serialIn.toInt(); // read the unix time
       if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
         setTime(pctime); // Sync ESP clock to the time received on the serial port
-        
+        if (rtc.setUNIX(pctime) == false) {
+          Serial.println("Something went wrong setting the RTC time");
+        }
       }
     }
 
