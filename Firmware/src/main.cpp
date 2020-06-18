@@ -1,7 +1,5 @@
 #include <Arduino.h>
 
-//#include "WindSensor.h"
-
 #include <Wire.h>
 
 #include <pms.h>
@@ -13,16 +11,19 @@
 #include <Adafruit_MAX31865.h>
 #include <SoftwareSerial.h>
 #include <MHZ19.h>
-
 // rtc library
 #include <RV-3028-C7.h>
+#include "WeatherMeters.h"
+
 
 // Pin Configs
 #define APPin 22
 #define APLed 19
 #define STALed 23
-//#define windDirPin 32
-//#define windSpeedPin 33
+
+const int windvane_pin = 32;
+const int anemometer_pin = 33;
+const int raingauge_pin = 27;
 
 // Firmware configs
 // The value of the Rref resistor. Use 430.0 for PT100 and 4300.0 for PT1000
@@ -73,18 +74,12 @@ float mhz19_min_co2;
 float mhz19_temperature;
 float mhz19_accuracy;
 
-//WIND-DIR
-//int windDir = 0; //0-7
-//int windDirDeg = 0; //degrees
-//float windDirAvg = 0;
-//String windDirStr = "";
-
-//Wind-SPD
-//float windSpeed = 0; //m/s
-//int beaufort = 0;
-//String beaufortDesc = "";
-//float windSpeedAvg = 0;
-//bool prevWindPinVal = false;
+// Weather lib
+volatile bool got_data = false;
+hw_timer_t * timer = NULL;
+volatile SemaphoreHandle_t timerSemaphore;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+WeatherMeters <6> meters(windvane_pin, 8);  // filter last 6 directions, refresh data every 8 sec
 
 // Rain
 float rainAmount = 0;
@@ -108,8 +103,8 @@ unsigned long lastPrintTime = 0;
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
-// Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
-Adafruit_MAX31865 mx = Adafruit_MAX31865(15); //spi_cs,spi_mosi,spi_miso,spi_clk
+Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
+// Adafruit_MAX31865 mx = Adafruit_MAX31865(15); //spi_cs,spi_mosi,spi_miso,spi_clk
 RV3028 rtc;
 
 SoftwareSerial ss(4,2);
@@ -315,25 +310,25 @@ void rtdTemperatureRead(void){
 
 /**************************************************************************/
 /*
-    read wind
+    Weather lib stuff
 */
 /**************************************************************************/
-//void readWindSensor() {
-  //if (digitalRead(windSpeedPin) && !prevWindPinVal) {
-    //ws.calcWindSpeed();
-  //}
-  //prevWindPinVal = digitalRead(windSpeedPin);
+void intAnemometer() {
+  meters.intAnemometer();
+}
 
-  //ws.updateWindSensor();
-  //windSpeed = ws.getWindSpeed();
-  //beaufort = ws.getBeaufort();
-  //beaufortDesc = ws.getBeaufortDesc();
+void intRaingauge() {
+  meters.intRaingauge();
+}
 
-  //ws.determineWindDir();
-  //windDir = ws.getWindDir();
-  //windDirDeg = ws.getWindDirDeg();
-  //windDirStr = ws.getWindDirString();
-//}
+void IRAM_ATTR onTimer() {
+  xSemaphoreGiveFromISR(timerSemaphore, NULL);
+  meters.timer();
+}
+
+void readDone(void) {
+  got_data = true;
+}
 
 /**************************************************************************/
 /*
@@ -472,19 +467,21 @@ void printMeasurements(){
   Serial.printf("SensorT°: %.1f\n", mhz19_temperature);
   //Serial.printf("Accuracy: %f\n", mhz19_accuracy);
 
-  //Serial.printf("-------------------------------------\n");
-  //Serial.printf("WIND-DIR \n");
-    // Serial.printf("Winddir: %d \n", analogRead(windDirPin));
-    // Serial.printf("Wind dir deg: %i\n\r",ws.getWindDirDeg());
-    // Serial.printf("Wind dir string: %s\n\r",ws.getWindDirString().c_str());
+  Serial.printf("-------------------------------------\n");
+  if (got_data) {
+    got_data = false;
+    Serial.print("Wind degrees: ");
+    Serial.print(meters.getDir(), 1);
+    Serial.print(" Wind speed: ");
+    Serial.print(meters.getSpeed(), 1);
+    Serial.print("km/h, Rain: ");
+    Serial.print(meters.getRain(), 4);
+    Serial.println("mm");
+  } else {
+    Serial.printf("No weather data.\n");
+  }
 
   Serial.printf("-------------------------------------\n");
-  //Serial.printf("Wind-SPD \n");
-  // Serial.println("Wind speed:         " + String(ws.getWindSpeed()) + "m/s, " + String(ws.getWindSpeed() * 3.6) + "km/h");
-  // Serial.println("Beaufort:           " + String(ws.getBeaufort()) + " (" + ws.getBeaufortDesc() + ")");
-  // Serial.println("Wind speed avg:     " + String(ws.getWindSpeedAvg(false)));
-  // Serial.println("Wind direction:     " + ws.getWindDirString() + " (" + String(ws.getWindDir()) + ")");
-  // Serial.println("Wind direction avg: " + String(ws.getWindDirAvg(false)));
   Serial.printf("Rain amount: %.2fmm\n", rainAmount);
 
   Serial.printf("##################xx#################\n");
@@ -653,10 +650,25 @@ void setup() {
   prevHallVal = readMagnet();
   Serial.printf("Hall value initialized as %d\n", prevHallVal);
 
+  //init RTC
   if (rtc.begin() == false) {
-  Serial.println("Something went wrong, check wiring");
-  while (1);
+    Serial.println("Something went wrong with RTC, check wiring");
+    while (1);
   }
+
+  // init Weather lib things
+  attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, FALLING);
+  attachInterrupt(digitalPinToInterrupt(raingauge_pin), intRaingauge, FALLING);
+
+  meters.attach(readDone);
+
+  timerSemaphore = xSemaphoreCreateBinary();
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 1000000, true);
+  timerAlarmEnable(timer);
+
+  meters.reset();  // in case we got already some interrupts
 }
 
 /**************************************************************************/
