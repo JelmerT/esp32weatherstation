@@ -76,10 +76,11 @@ float mhz19_accuracy;
 
 // Weather lib
 volatile bool got_data = false;
+volatile bool timer_tick = false;
 hw_timer_t * timer = NULL;
 volatile SemaphoreHandle_t timerSemaphore;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-WeatherMeters <6> meters(windvane_pin, 8);  // filter last 6 directions, refresh data every 8 sec
+WeatherMeters <6> meters(windvane_pin, 4);  // filter last 6 directions, refresh data every 8 sec
 
 // Rain
 float rainAmount = 0;
@@ -93,8 +94,8 @@ String serialIn;
 bool serialRdy = false;
 
 // time interval variables
-unsigned long sensorInterval = 50000; // in ms
-unsigned long printInterval = 10000; // in ms
+unsigned long sensorInterval = 4000; // in ms
+unsigned long printInterval = 5000; // in ms
 unsigned long lastSensorTime = 0;
 unsigned long lastPrintTime = 0;
 
@@ -323,7 +324,8 @@ void intRaingauge() {
 
 void IRAM_ATTR onTimer() {
   xSemaphoreGiveFromISR(timerSemaphore, NULL);
-  meters.timer();
+  // meters.timer();
+  timer_tick = true;
 }
 
 void readDone(void) {
@@ -686,6 +688,11 @@ void loop() {
   // Check rain sensor
   readRainSensor();
 
+  // check weather sensors
+  if (timer_tick){
+    timer_tick = false;
+    meters.timer();
+  }
   //read sensors every 5 seconds
   if ((lastSensorTime + sensorInterval) < millis()) {
 
