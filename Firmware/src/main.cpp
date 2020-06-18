@@ -14,9 +14,7 @@
 #include <SoftwareSerial.h>
 #include <MHZ19.h>
 
-
-// time library
-#include <TimeLib.h>
+// rtc library
 #include <RV-3028-C7.h>
 
 // Pin Configs
@@ -110,7 +108,8 @@ unsigned long lastPrintTime = 0;
 Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 Adafruit_VEML6075 uv = Adafruit_VEML6075();
 Adafruit_BMP3XX bmp; // I2C
-Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
+// Adafruit_MAX31865 mx = Adafruit_MAX31865(15, 13, 12, 14); //spi_cs,spi_mosi,spi_miso,spi_clk
+Adafruit_MAX31865 mx = Adafruit_MAX31865(15); //spi_cs,spi_mosi,spi_miso,spi_clk
 RV3028 rtc;
 
 SoftwareSerial ss(4,2);
@@ -408,19 +407,6 @@ void printDigits(int digits){
   Serial.print(digits);
 }
 
-void digitalClockDisplay(){
-  // digital clock display of the time
-  Serial.print(hour());
-  printDigits(minute());
-  printDigits(second());
-  Serial.print(" ");
-  Serial.print(day());
-  Serial.print(" ");
-  Serial.print(month());
-  Serial.print(" ");
-  Serial.print(year()); 
-  Serial.println(); 
-}
 
 /**************************************************************************/
 /*
@@ -433,12 +419,6 @@ void printMeasurements(){
   Serial.println("Time active: " + String(time) + "ms\n " + String(time/1000/60) + " minutes\n " + String(time/1000/3600) + " Hours");
   Serial.printf("#####################################\n");
   Serial.printf("\n");
-
-  Serial.println("Current time:");
-  digitalClockDisplay();
-  Serial.printf("\n");
-
-  Serial.printf("Current unix time: %lu\n\n", now());
 
   Serial.println("Current time from RTC:");
   if (rtc.updateTime() == false) //Updates the time variables from RTC
@@ -577,7 +557,6 @@ void handleSerial() {
       serialIn.remove(0,1); // remove the T
       pctime = serialIn.toInt(); // read the unix time
       if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
-        setTime(pctime); // Sync ESP clock to the time received on the serial port
         if (rtc.setUNIX(pctime) == false) {
           Serial.println("Something went wrong setting the RTC time");
         }
@@ -619,8 +598,6 @@ void setup() {
 
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
-
-  setTime(1357041600); // jan 1 2013
 
   //ws.initWindSensor();
 
