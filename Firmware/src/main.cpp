@@ -556,8 +556,12 @@ void handleSerial() {
       serialIn.remove(0,1); // remove the T
       pctime = serialIn.toInt(); // read the unix time
       if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+        rtc.set24Hour();
         if (rtc.setUNIX(pctime) == false) {
-          Serial.println("Something went wrong setting the RTC time");
+          Serial.println("Something went wrong setting the RTC UNIX time");
+        }
+        if (rtc.setToCompilerTime() == false) {
+          Serial.println("Something went wrong setting the RTC time to the compiler time");
         }
       }
     }
@@ -656,7 +660,8 @@ void setup() {
   if (rtc.begin() == false) {
     Serial.println("Something went wrong with RTC, check wiring");
     while (1);
-  }
+  }  else
+    Serial.println("RTC online!");
 
   // init Weather lib things
   attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, FALLING);
