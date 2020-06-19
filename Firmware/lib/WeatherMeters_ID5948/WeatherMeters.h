@@ -251,7 +251,7 @@ void WeatherMeters<N>::intRaingauge() {
 }
 
 template <uint8_t N>
-void WeatherMeters<N>::timer() {
+void IRAM_ATTR WeatherMeters<N>::timer() {
     _timer_counter++;
 
     if (_windvane_pin > -1) {

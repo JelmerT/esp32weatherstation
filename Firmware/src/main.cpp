@@ -324,8 +324,8 @@ void intRaingauge() {
 
 void IRAM_ATTR onTimer() {
   xSemaphoreGiveFromISR(timerSemaphore, NULL);
-  // meters.timer();
-  timer_tick = true;
+  meters.timer();
+  // timer_tick = true;
 }
 
 void readDone(void) {
@@ -667,6 +667,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, FALLING);
   attachInterrupt(digitalPinToInterrupt(raingauge_pin), intRaingauge, FALLING);
 
+  meters.debug(&Serial);
   meters.attach(readDone);
 
   timerSemaphore = xSemaphoreCreateBinary();
