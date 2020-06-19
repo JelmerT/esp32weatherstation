@@ -314,8 +314,9 @@ void rtdTemperatureRead(void){
     Weather lib stuff
 */
 /**************************************************************************/
-void intAnemometer() {
+void IRAM_ATTR intAnemometer() {
   meters.intAnemometer();
+   digitalWrite(STALed, !digitalRead(STALed));
 }
 
 void intRaingauge() {
@@ -598,6 +599,9 @@ void setup() {
   pinMode(APPin, INPUT_PULLUP);
   pinMode(APLed, OUTPUT);
   pinMode(STALed, OUTPUT);
+  pinMode(anemometer_pin, INPUT);
+  pinMode(raingauge_pin, INPUT);
+  //pinMode(windvane_pin, INPUT);
 
   digitalWrite(APLed, LOW);
   digitalWrite(STALed, LOW);
@@ -664,8 +668,11 @@ void setup() {
     Serial.println("RTC online!");
 
   // init Weather lib things
-  attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, FALLING);
-  attachInterrupt(digitalPinToInterrupt(raingauge_pin), intRaingauge, FALLING);
+
+  attachInterrupt(digitalPinToInterrupt(anemometer_pin), intAnemometer, RISING);
+  attachInterrupt(digitalPinToInterrupt(raingauge_pin), intRaingauge, RISING);
+  //changed to "RISING" because this is the ref, the pulsewidth changes according 
+  //to the speed of the vanes
 
   meters.debug(&Serial);
   meters.attach(readDone);
