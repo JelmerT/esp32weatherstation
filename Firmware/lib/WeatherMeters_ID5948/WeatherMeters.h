@@ -25,6 +25,8 @@ SOFTWARE.
 
 #define RAIN_GAUGE_RES 0.2794  // mm
 #define WIND_SPEED_RES 1.58  // km/h
+#define WIND_DIR_ANALOG_MIN 0
+#define WIND_DIR_ANALOG_MAX 3850
 
 #if WM_ADC_RESOLUTION == 4096 || defined(STM32_MCU_SERIES) || defined(ARDUINO_ARCH_ESP32)
 const static uint16_t _windvane_table[16][2] = {
@@ -158,18 +160,21 @@ float WeatherMeters<N>::adcToDir(uint16_t value) {
     uint16_t dir = 0;
 
     // Map ADC to degrees
-    for (uint8_t i = 0; i < 16; i++) {
-        if (value >= _windvane_table[15][1]) {
-            // prevent overflow of index "i"
-            dir = _windvane_table[15][0];
-            break;
+    // for (uint8_t i = 0; i < 16; i++) {
+    //     if (value >= _windvane_table[15][1]) {
+    //         // prevent overflow of index "i"
+    //         dir = _windvane_table[15][0];
+    //         break;
 
-        } else if (value <= (_windvane_table[i][1] + ((_windvane_table[i + 1][1] - _windvane_table[i][1]) >> 1))) {
-            // value can be up to half the difference to next
-            dir = _windvane_table[i][0];
-            break;
-        }
-    }
+    //     } else if (value <= (_windvane_table[i][1] + ((_windvane_table[i + 1][1] - _windvane_table[i][1]) >> 1))) {
+    //         // value can be up to half the difference to next
+    //         dir = _windvane_table[i][0];
+    //         break;
+    //     }
+    // }
+    dir = 360-((value-WIND_DIR_ANALOG_MIN)/((WIND_DIR_ANALOG_MAX-WIND_DIR_ANALOG_MIN)/360));
+    if (dir > 360){dir = 360;}
+    if (dir < 0){dir = 0;}
 
     if (_serial) {
         _serial->print(F("[WEATHER] Wind vane ADC:"));
