@@ -80,7 +80,7 @@ volatile bool timer_tick = false;
 hw_timer_t * timer = NULL;
 volatile SemaphoreHandle_t timerSemaphore;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-WeatherMeters <6> meters(windvane_pin, 4);  // filter last 6 directions, refresh data every 8 sec
+WeatherMeters <6> meters(windvane_pin, 4);  // filter last 6 directions, refresh data every 4 sec
 
 // Rain
 float rainAmount = 0;

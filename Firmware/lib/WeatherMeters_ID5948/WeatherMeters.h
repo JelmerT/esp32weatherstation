@@ -172,7 +172,7 @@ float WeatherMeters<N>::adcToDir(uint16_t value) {
     //         break;
     //     }
     // }
-    dir = 360-((value-WIND_DIR_ANALOG_MIN)/((WIND_DIR_ANALOG_MAX-WIND_DIR_ANALOG_MIN)/360));
+    dir = 360 - ((value-WIND_DIR_ANALOG_MIN)/((WIND_DIR_ANALOG_MAX-WIND_DIR_ANALOG_MIN)/360));
     if (dir > 360){dir = 360;}
     if (dir < 0){dir = 0;}
 
@@ -185,9 +185,9 @@ float WeatherMeters<N>::adcToDir(uint16_t value) {
     }
 
     if (_dirFilter) {
-        float filtered_dir = _dirFilter->add(static_cast<float>(dir) / 10);
+        float filtered_dir = _dirFilter->add(static_cast<float>(dir));
 
-        filtered_dir = round(filtered_dir / 22.5) * 22.5;  // get 22.5° resolution
+        // filtered_dir = round(filtered_dir / 22.5) * 22.5;  // get 22.5° resolution
 
         if (filtered_dir >= 360.0) filtered_dir = 0;
 
