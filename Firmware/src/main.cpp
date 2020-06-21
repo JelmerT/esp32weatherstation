@@ -325,8 +325,8 @@ void intRaingauge() {
 
 void IRAM_ATTR onTimer() {
   xSemaphoreGiveFromISR(timerSemaphore, NULL);
-  meters.timer();
-  // timer_tick = true;
+  // meters.timer();
+  timer_tick = true;
 }
 
 void readDone(void) {
